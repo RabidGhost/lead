@@ -1,4 +1,4 @@
-mod token;
+pub mod token;
 
 use std::{collections::VecDeque, error::Error, iter::Peekable, str::Chars};
 

@@ -1,6 +1,7 @@
 mod error;
 mod lang;
 mod lex;
+mod parse;
 
 fn main() {
     let src: &str = r#"let xyz := 56 ;"#;
