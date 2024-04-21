@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum TokenType {
     Space, // we will filter this out before the parse step.
 
@@ -73,7 +73,7 @@ impl TokenType {
             TokenType::Bang => 1,
             TokenType::BangEq => 2,
             TokenType::Identifier(string) => string.len(),
-            TokenType::Char(char) => 3,
+            TokenType::Char(_) => 3,
             TokenType::Number(_, repr) => repr.len(),
             TokenType::Let => 3,
             TokenType::If => 2,
@@ -86,7 +86,7 @@ impl TokenType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Token {
     token_type: TokenType,
     line: usize, // The offset in chars from the start of the file. Useful for meaningful error messages
@@ -104,8 +104,8 @@ impl Token {
         }
     }
 
-    pub fn token_type(&self) -> TokenType {
-        self.token_type()
+    pub fn token_type(&self) -> &TokenType {
+        &self.token_type
     }
 }
 
