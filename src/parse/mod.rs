@@ -15,6 +15,10 @@ impl Parser {
         vec_deque.extend(tokens.iter().cloned());
         Parser { tokens: vec_deque}
     }
+
+    pub fn sub_parser(&self, range: std::ops::Range<usize>) -> Self {
+        Self::new(&(self.tokens.make_contiguous()[range]))
+    }
 }
 
 trait Parsable {
@@ -81,12 +85,75 @@ impl Parsable for BinaryOperator {
     }
 }
 
+impl Parsable for UnaryApplication {
+    fn parse(parser: &mut Parser) -> Result<Self, Box<dyn LangError>> where Self: Sized {
+        let op = UnaryOperator::parse(parser)?;
+        let expr = Expression::parse(parser)?;
+        let res = UnaryApplication::new(op, expr);
+        res.type_check()?;
+        Ok(res)
+    }
+}
+
+impl Parsable for BinaryApplication {
+    fn parse(parser: &mut Parser) -> Result<Self, Box<dyn LangError>> where Self: Sized {
+        let left = Expression::parse(parser)?;
+        let op = BinaryOperator::parse(parser)?;
+        let right = Expression::parse(parser)?;
+        let res = BinaryApplication::new(op, left, right);
+        res.type_check()?;
+        Ok(res)
+    }
+}
+
+impl Parsable for Grouping {
+    fn parse(parser: &mut Parser) -> Result<Self, Box<dyn LangError>> where Self: Sized {
+        let left_pr = match parser.tokens.pop_front() {
+            None => return Err(Box::new(NoTokensOnParseErr)),
+            Some(t) => if *t.token_type() != TokenType::LeftParen {todo!() /* error here for no paren */} ,
+        };
+        let expr = Expression::parse(parser)?;
+        let right_pr = match parser.tokens.pop_front() {
+            None => return Err(Box::new(NoTokensOnParseErr)),
+            Some(t) => if *t.token_type() != TokenType::RightParen {todo!() /* error here for no paren */},
+        };
+        
+        let res = Grouping::new(expr);
+        res.type_check()?;
+        Ok(res)
+    }
+}
+
+impl Parsable for Expression {
+    fn parse(parser: &mut Parser) -> Result<Self, Box<dyn LangError>> where Self: Sized {
+        match parser.tokens.front() {
+            None => return Err(Box::new(NoTokensOnParseErr)),
+            Some(t) => match *t.token_type() {
+                TokenType::Bang | TokenType::Minus => return Ok(Self::ExprUnary(UnaryApplication::parse(parser)?)),
+                TokenType::True | TokenType::False | TokenType::Number(_,_) => {
+                    todo!()
+                }
+                TokenType::LeftParen => {
+                    let pos_matching_paren = parser.tokens.iter().position(|&t| *t.token_type() == TokenType::RightParen);
+
+                    let grouping = Self::ExprGrouping(Grouping::parse(parser)?);
+                    let next_token = 
 
 
+                },
+                _ => todo!()
+            } ,
+        }
+    }
+}
 
 
 
 mod tests {
+    use std::vec;
+
+    use crate::error::parse_error;
+
     use super::*;
     
     #[test]
@@ -143,13 +210,45 @@ mod tests {
         assert_eq!(expected, result);
     }
 
-    #[test]
-    fn parse_binary_op_eqeq() {
-        let tokens = vec![Token::new(TokenType::EqEq, 0, 0, 2)];
+    fn parse_binary_op_helper(tokens: Vec<Token>, expecteds: Vec<BinaryOperator>) {
         let mut parser: Parser = Parser::new(&tokens);
-        let result = BinaryOperator::parse(&mut parser).unwrap();
-        let expected = BinaryOperator::new(tokens.first().unwrap().clone(), LangType::Boolean);
-        assert_eq!(expected, result);
+        for i in 0..tokens.len() {
+            let result = BinaryOperator::parse(&mut parser).unwrap();
+            let expected = &expecteds[i];
+            assert_eq!(expected, &result)
+        }
+    }
+
+    #[test]
+    fn parse_binary_op() {
+        let to_test = vec![
+            Token::new(TokenType::EqEq, 0, 0, 2),
+            Token::new(TokenType::BangEq, 0, 0, 2),
+            Token::new(TokenType::LessThan, 0, 0, 1),
+            Token::new(TokenType::LessThanEq, 0, 0, 2),
+            Token::new(TokenType::GreaterThan, 0, 0, 1),
+            Token::new(TokenType::GreaterThanEq, 0, 0, 2),
+            Token::new(TokenType::Plus, 0, 0, 1),
+            Token::new(TokenType::Minus, 0, 0, 1),
+            Token::new(TokenType::Star, 0, 0, 1),
+            Token::new(TokenType::Slash, 0, 0, 1),
+        ];
+
+        let results = vec![
+            BinaryOperator::new(Token::new(TokenType::EqEq, 0, 0, 2), LangType::Boolean),
+            BinaryOperator::new(Token::new(TokenType::BangEq, 0, 0, 2), LangType::Boolean),
+            BinaryOperator::new(Token::new(TokenType::LessThan, 0, 0, 1), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::LessThanEq, 0, 0, 2), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::GreaterThan, 0, 0, 1), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::GreaterThanEq, 0, 0, 2), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::Plus, 0, 0, 1), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::Minus, 0, 0, 1), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::Star, 0, 0, 1), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::Slash, 0, 0, 1), LangType::Number),
+            BinaryOperator::new(Token::new(TokenType::EqEq, 0, 0, 2), LangType::Number),
+        ];
+
+        parse_binary_op_helper(to_test, results)
     }
 
 

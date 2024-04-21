@@ -70,6 +70,16 @@ impl BinaryOperator {
     pub fn new(operator: Token, ty: LangType) -> Self {
         Self { operator, ty }
     }
+
+    fn is_valid(token: &Token) -> bool {
+        match token.token_type() {
+            TokenType::EqEq | TokenType::BangEq |
+            TokenType::LessThan | TokenType::LessThanEq | TokenType::GreaterThan
+            | TokenType::GreaterThanEq | TokenType::Plus | TokenType::Minus
+            | TokenType::Star | TokenType::Slash => true,
+            _ => false,
+        }
+    }
 }
 
 impl LangExpression for BinaryOperator {
@@ -85,7 +95,7 @@ impl LangExpression for BinaryOperator {
             TokenType::LessThan | TokenType::LessThanEq | TokenType::GreaterThan
             | TokenType::GreaterThanEq | TokenType::Plus | TokenType::Minus
             | TokenType::Star | TokenType::Slash => {
-                if self.ty == LangType::Boolean {
+                if self.ty == LangType::Number {
                     Ok(())
                 } else {
                     Err(Box::new(MixedTypeExpressionError::new(LangType::Number, self.ty)))
@@ -140,20 +150,42 @@ impl LangExpression for UnaryOperator {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct BinaryApplication {
+pub struct BinaryApplication {
     operator: BinaryOperator,
     left: Box<Expression>,
     right: Box<Expression>,
 }
 
+impl BinaryApplication {
+    pub fn new(operator: BinaryOperator, left: Expression, right: Expression) -> Self {
+        Self { operator, left: Box::new(left), right: Box::new(right) }
+    }
+}
+
+impl LangExpression for BinaryApplication {
+    fn type_check(&self) -> Result<(), Box<dyn LangError>> {
+        if (self.operator.ty == (*self.left).lang_type()) && self.operator.ty == (*self.right).lang_type(){
+            Ok(())
+        } else {
+            Err(Box::new(
+                MixedTypeExpressionError::new(self.operator.ty, self.left.lang_type())
+            ))
+        }
+    }
+
+    fn lang_type(&self) -> LangType {
+        self.operator.ty
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
-struct UnaryApplication {
+pub struct UnaryApplication {
     operator: UnaryOperator,
     expression: Box<Expression>,
 }
 
 impl UnaryApplication {
-    fn new(operator: UnaryOperator, expression: Expression) -> Self {
+    pub fn new(operator: UnaryOperator, expression: Expression) -> Self {
         UnaryApplication { operator, expression: Box::new(expression) }
     }
 }
