@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 use ast::*;
 use crate::{error::{parse_error::{InvalidLiteral, InvalidUnaryOperatorErr, NoTokensOnParseErr}, LangError}, lex::token::{Token, TokenType}};
 
+#[derive(Debug)]
 pub struct Parser {
     tokens: VecDeque<Token>
 }
@@ -16,8 +17,24 @@ impl Parser {
         Parser { tokens: vec_deque}
     }
 
-    pub fn sub_parser(&self, range: std::ops::Range<usize>) -> Self {
+    pub fn sub_parser<R: std::slice::SliceIndex<[Token], Output = [Token]>>(&mut self, range: R) -> Self {
         Self::new(&(self.tokens.make_contiguous()[range]))
+    }
+
+    pub fn find_matching_parenthesis(&self) -> Option<usize> {
+        if *self.tokens.front()?.token_type() != TokenType::LeftParen {return None};
+
+        let mut nest_count: usize = 0;
+        let mut pos = 0;
+        for token in self.tokens.iter() {
+            if *token.token_type() == TokenType::LeftParen {nest_count += 1}
+            if *token.token_type() == TokenType::RightParen {nest_count -= 1}
+            if nest_count == 0 {
+                return Some(pos)
+            }
+            pos += 1;
+        }
+        todo!("unbalanced parens. need to make error for this. or return none")
     }
 }
 
@@ -108,19 +125,27 @@ impl Parsable for BinaryApplication {
 
 impl Parsable for Grouping {
     fn parse(parser: &mut Parser) -> Result<Self, Box<dyn LangError>> where Self: Sized {
-        let left_pr = match parser.tokens.pop_front() {
-            None => return Err(Box::new(NoTokensOnParseErr)),
-            Some(t) => if *t.token_type() != TokenType::LeftParen {todo!() /* error here for no paren */} ,
+        let matching_paren = match parser.find_matching_parenthesis() {
+            Some(pos) => pos,
+            None => todo!("the method should probably just return a result")
         };
-        let expr = Expression::parse(parser)?;
-        let right_pr = match parser.tokens.pop_front() {
-            None => return Err(Box::new(NoTokensOnParseErr)),
-            Some(t) => if *t.token_type() != TokenType::RightParen {todo!() /* error here for no paren */},
-        };
+        let expr = Expression::parse(&mut parser.sub_parser(1..matching_paren))?;
+        // might need type check line
+        Ok(Grouping::new(expr))
+
+        // let left_pr = match parser.tokens.pop_front() {
+        //     None => return Err(Box::new(NoTokensOnParseErr)),
+        //     Some(t) => if *t.token_type() != TokenType::LeftParen {todo!() /* error here for no paren */} ,
+        // };
+        // let expr = Expression::parse(parser)?;
+        // let right_pr = match parser.tokens.pop_front() {
+        //     None => return Err(Box::new(NoTokensOnParseErr)),
+        //     Some(t) => if *t.token_type() != TokenType::RightParen {todo!() /* error here for no paren */},
+        // };
         
-        let res = Grouping::new(expr);
-        res.type_check()?;
-        Ok(res)
+        // let res = Grouping::new(expr);
+        // res.type_check()?;
+        // Ok(res)
     }
 }
 
@@ -131,15 +156,27 @@ impl Parsable for Expression {
             Some(t) => match *t.token_type() {
                 TokenType::Bang | TokenType::Minus => return Ok(Self::ExprUnary(UnaryApplication::parse(parser)?)),
                 TokenType::True | TokenType::False | TokenType::Number(_,_) => {
-                    todo!()
+                    match parser.tokens.get(1) {
+                        None => Ok(Expression::ExprLiteral(Literal::parse(parser)?)),
+                        _ => todo!(),
+                    }
                 }
                 TokenType::LeftParen => {
-                    let pos_matching_paren = parser.tokens.iter().position(|&t| *t.token_type() == TokenType::RightParen);
+                    let mut token_iter = parser.tokens.iter();
+                    token_iter.next();
+                    let pos_matching_paren = match token_iter.position(|t| *t.token_type() == TokenType::RightParen) {
+                        Some(pos) => pos,
+                        None => todo!("unmatched parenthesise error")
+                    };
 
-                    let grouping = Self::ExprGrouping(Grouping::parse(parser)?);
-                    let next_token = 
+                    println!("{pos_matching_paren}");
 
+                    let mut subparser: Parser = parser.sub_parser(0..=(pos_matching_paren + 1));
+                    dbg!(&subparser);
 
+                    let grouping = Self::ExprGrouping(Grouping::parse(&mut subparser)?);
+                    //grouping.type_check()?; //unimplemented for now so dissabled
+                    Ok(grouping)
                 },
                 _ => todo!()
             } ,
@@ -249,6 +286,19 @@ mod tests {
         ];
 
         parse_binary_op_helper(to_test, results)
+    }
+
+    #[test]
+    fn parse_grouping_literal() {
+        let tokens = vec![Token::new(TokenType::LeftParen, 0, 0, 1), Token::new(TokenType::Number(56, "56".to_owned()), 0, 1, 2), Token::new(TokenType::RightParen, 0, 3, 1)];
+        let mut parser: Parser = Parser::new(&tokens);
+        let result = Expression::parse(&mut parser).unwrap();
+        let expected = Expression::ExprGrouping(
+            Grouping::new(
+                Expression::ExprLiteral(
+                    Literal::new(tokens.iter().nth(1).unwrap().clone(), LangType::Number)
+                )));
+        assert_eq!(expected, result);
     }
 
 
