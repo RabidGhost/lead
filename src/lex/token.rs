@@ -1,3 +1,7 @@
+use crate::error::{LangError, ERROR_INVALID_KEYWORD, ERROR_INVALID_LEXEME};
+
+pub const KEYWORDS: [&'static str; 6] = ["true", "false", "let", "if", "for", "while"];
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum TokenType {
     Space, // we will filter this out before the parse step.
@@ -31,81 +35,118 @@ pub enum TokenType {
     // Literals
     Identifier(String),
     Char(char),
-    Number(i32, String), // Number(value, repr)
+    Number(u64),
+    Bool(bool),
 
     // Keywords
     Let,
     If,
     For,
     While,
-    True,
-    False,
 
     // End of file
     EOF,
 }
 
-impl TokenType {
-    pub fn size(&self) -> usize {
-        // the size the token would occupy in the source code
-        match self {
-            TokenType::Space => 1,
-            TokenType::LeftParen => 1,
-            TokenType::RightParen => 1,
-            TokenType::LeftBrace => 1,
-            TokenType::RightBrace => 1,
-            TokenType::LeftSquare => 1,
-            TokenType::RightSquare => 1,
-            TokenType::Comma => 1,
-            TokenType::Dot => 1,
-            TokenType::Minus => 1,
-            TokenType::Plus => 1,
-            TokenType::Slash => 1,
-            TokenType::Star => 1,
-            TokenType::Semicolon => 1,
-            TokenType::LessThan => 1,
-            TokenType::GreaterThan => 1,
-            TokenType::LessThanEq => 2,
-            TokenType::GreaterThanEq => 2,
-            TokenType::EqEq => 2,
-            TokenType::Colon => 1,
-            TokenType::Assign => 2,
-            TokenType::Bang => 1,
-            TokenType::BangEq => 2,
-            TokenType::Identifier(string) => string.len(),
-            TokenType::Char(_) => 3,
-            TokenType::Number(_, repr) => repr.len(),
-            TokenType::Let => 3,
-            TokenType::If => 2,
-            TokenType::For => 3,
-            TokenType::While => 5,
-            TokenType::True => 4,
-            TokenType::False => 5,
-            TokenType::EOF => 0,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Token {
     token_type: TokenType,
-    line: usize, // The offset in chars from the start of the file. Useful for meaningful error messages
-    col: usize,
-    length: usize, // The length of the token.
+    span: (usize, usize),
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, line: usize, col: usize, length: usize) -> Self {
+    pub fn new(token_type: TokenType, start: usize, length: usize) -> Self {
         Self {
             token_type,
-            line,
-            col,
-            length,
+            span: (start, start + length),
         }
     }
 
     pub fn token_type(&self) -> &TokenType {
         &self.token_type
+    }
+
+    pub fn from(string: &str, start: usize) -> Result<Self, LangError> {
+        let ty = match string {
+            " " => TokenType::Space,
+            "(" => TokenType::LeftParen,
+            ")" => TokenType::RightParen,
+            "{" => TokenType::LeftBrace,
+            "}" => TokenType::RightBrace,
+            "[" => TokenType::LeftSquare,
+            "]" => TokenType::RightSquare,
+            "," => TokenType::Comma,
+            "." => TokenType::Dot,
+            "-" => TokenType::Minus,
+            "+" => TokenType::Plus,
+            "*" => TokenType::Star,
+            ";" => TokenType::Semicolon,
+            "!" => TokenType::Bang,
+            "<" => TokenType::LessThan,
+            ">" => TokenType::GreaterThan,
+            ":" => TokenType::Colon,
+            "!=" => TokenType::EqEq,
+            "<=" => TokenType::LessThanEq,
+            ">=" => TokenType::GreaterThanEq,
+            ":=" => TokenType::Assign,
+            _ => {
+                return Err(LangError::from(
+                    format!("invalid lexeme `{string}`"),
+                    (start, start + string.len()),
+                    ERROR_INVALID_LEXEME,
+                ))
+            }
+        };
+
+        Ok(Token {
+            token_type: ty,
+            span: (start, start + string.len()),
+        })
+    }
+
+    pub fn from_bool(b: bool, start: usize) -> Self {
+        let len: usize = match b {
+            true => 4,
+            false => 5,
+        };
+        Token {
+            token_type: TokenType::Bool(b),
+            span: (start, start + len),
+        }
+    }
+
+    pub fn from_num(n: u64, start: usize, stop: usize) -> Self {
+        Token {
+            token_type: TokenType::Number(n),
+            span: (start, stop),
+        }
+    }
+
+    pub fn from_keyword(string: &str, start: usize) -> Result<Self, LangError> {
+        if !KEYWORDS.contains(&string) {
+            Err(LangError::from(
+                format!(
+                    "invalid keyword `{}`, this error should be impossible",
+                    string
+                ),
+                (start, start + string.len()),
+                ERROR_INVALID_KEYWORD,
+            ))
+        } else {
+            let ty: TokenType = match string {
+                "true" => return Ok(Token::from_bool(true, start)),
+                "false" => return Ok(Token::from_bool(false, start)),
+                "if" => TokenType::If,
+                "let" => TokenType::Let,
+                "for" => TokenType::For,
+                "while" => TokenType::While,
+                _ => unreachable!(),
+            };
+            Ok(Self {
+                token_type: ty,
+                span: (start, start + string.len()),
+            })
+        }
     }
 }
 
