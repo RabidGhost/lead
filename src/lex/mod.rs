@@ -2,8 +2,6 @@ pub mod token;
 
 use TSPL::{self, Parser};
 
-use std::error::Error;
-
 use crate::error::{
     LangError, ERROR_INVALID_CHARACTER_LITERAL, ERROR_INVALID_INDENTIFIER,
     ERROR_INVALID_NUMBER_LITERAL,
@@ -13,7 +11,6 @@ use token::{Token, TokenType, KEYWORDS};
 pub struct Lexer<'l> {
     src: &'l str,
     index: usize,
-    tokens: Vec<Token>,
     errors: Vec<LangError>,
 }
 
@@ -28,6 +25,23 @@ impl<'i> TSPL::Parser<'i> for Lexer<'i> {
 }
 
 impl<'l> Lexer<'l> {
+    pub fn new(src: &'l str) -> Self {
+        Self {
+            src,
+            index: 0,
+            errors: Vec::new(),
+        }
+    }
+
+    pub fn run(&mut self) -> Result<Vec<Token>, Vec<LangError>> {
+        let mut buf = Vec::new();
+        match self.lex(&mut buf) {
+            Ok(_) => (),
+            Err(e) => return Err(vec![e]),
+        }
+        return Ok(buf);
+    }
+
     fn lex(&mut self, buf: &mut Vec<Token>) -> Result<(), LangError> {
         self.skip_trivia();
 
@@ -40,16 +54,20 @@ impl<'l> Lexer<'l> {
         let start = self.index;
 
         match self.peek_one().unwrap() {
-            ' ' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '-' | '+' | '*' | ';' | '/' => {
+            ' ' => {
+                self.skip_spaces();
+                return self.lex(buf);
+            }
+            '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '-' | '+' | '*' | ';' | '/' => {
                 tok = Token::from(&self.advance_one().unwrap().to_string(), self.index)?;
             }
             '!' | '<' | '>' | ':' | '=' => {
-                match self.advance_many(2) {
+                match self.peek_many(2) {
                     None => {
                         tok = Token::from(&self.advance_one().unwrap().to_string(), self.index)?
                     }
                     Some(string) => {
-                        if string.chars().nth(2).unwrap() == '=' {
+                        if string.chars().nth(1).unwrap() == '=' {
                             tok = Token::from(self.advance_many(2).unwrap(), self.index)?
                         } else {
                             tok = Token::from(&self.advance_one().unwrap().to_string(), self.index)?

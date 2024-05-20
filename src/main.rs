@@ -1,6 +1,6 @@
-use std::io::{self, Stdin, Stdout};
-
-//use repl::Repl;
+use lex::Lexer;
+// use miette::NamedSource;
+// use miette::{Diagnostic, Result, SourceSpan};
 
 mod error;
 mod lang;
@@ -9,16 +9,16 @@ mod parse;
 mod repl;
 
 fn main() {
-    // let mut repl: repl::Repl<Stdin, Stdout> = Repl::new(io::stdin(), io::stdout());
-    // repl.go()
+    let input = "let new_var := 5 + 17 - 0xf";
 
-    // let src: &str = r#"let xyz := 56 ;"#;
-    // let lexer = lex::Lexer::new(src);
-    // let tokens = lexer.run().unwrap();
-    // println!("{src}");
-    // print!("[");
-    // for tok in tokens {
-    //     print!("{tok}, ")
-    // }
-    // println!("]");
+    let mut lexer: Lexer = Lexer::new(input);
+    let tokens = match lexer.run() {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            eprintln!("{e:?}");
+            return;
+        }
+    };
+
+    dbg!(tokens);
 }

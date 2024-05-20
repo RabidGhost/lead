@@ -4,8 +4,6 @@ pub const KEYWORDS: [&'static str; 6] = ["true", "false", "let", "if", "for", "w
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum TokenType {
-    Space, // we will filter this out before the parse step.
-
     // Single char Tokens
     LeftParen,   // (
     RightParen,  // )
@@ -68,7 +66,6 @@ impl Token {
 
     pub fn from(string: &str, start: usize) -> Result<Self, LangError> {
         let ty = match string {
-            " " => TokenType::Space,
             "(" => TokenType::LeftParen,
             ")" => TokenType::RightParen,
             "{" => TokenType::LeftBrace,
@@ -85,7 +82,8 @@ impl Token {
             "<" => TokenType::LessThan,
             ">" => TokenType::GreaterThan,
             ":" => TokenType::Colon,
-            "!=" => TokenType::EqEq,
+            "!=" => TokenType::BangEq,
+            "==" => TokenType::EqEq,
             "<=" => TokenType::LessThanEq,
             ">=" => TokenType::GreaterThanEq,
             ":=" => TokenType::Assign,
