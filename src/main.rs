@@ -1,18 +1,54 @@
+use crate::interpreter::Interpretable;
 use lex::Lexer;
 use parse::LangParser;
 // use miette::NamedSource;
 // use miette::{Diagnostic, Result, SourceSpan};
+use clap::{Parser, Subcommand};
+use std::{fs::read_to_string, path::PathBuf};
 
 mod error;
+mod interpreter;
 mod lang;
 mod lex;
 mod parse;
 mod repl;
 
-fn main() {
-    let input = "(16 * (17 / 0xf)) + 17 + 12 + 4";
+#[derive(Parser)]
+#[command(about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    let mut lexer: Lexer = Lexer::new(input);
+#[derive(Subcommand)]
+enum Commands {
+    /// run in the interpreter from a file
+    Run {
+        file: PathBuf,
+    },
+
+    Repl,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Run { file } => run(file),
+        _ => todo!("implement repl"),
+    }
+}
+
+fn run(file: PathBuf) {
+    let input: String = match read_to_string(file.as_path()) {
+        Ok(src) => src,
+        Err(e) => {
+            eprintln!("error reading file: {e}");
+            return;
+        }
+    };
+
+    let mut lexer: Lexer = Lexer::new(&input);
 
     let tokens = match lexer.run() {
         Ok(tokens) => tokens,
@@ -30,6 +66,14 @@ fn main() {
             return;
         }
     };
+    let out = match ast.eval() {
+        Ok(lit) => lit,
+        Err(e) => {
+            eprintln!("{e:?}");
+            return;
+        }
+    };
 
-    dbg!(ast);
+    println!("{input}");
+    println!(" = {:?}", out);
 }
