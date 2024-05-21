@@ -91,6 +91,7 @@ impl Token {
             "<=" => TokenType::LessThanEq,
             ">=" => TokenType::GreaterThanEq,
             ":=" => TokenType::Assign,
+            "/" => TokenType::Slash,
             _ => {
                 return Err(LangError::from(
                     format!("invalid lexeme `{string}`"),

@@ -1,7 +1,7 @@
 use crate::{
     error::{
-        LangError, ERROR_INVALID_LITERAL, ERROR_INVALID_OPERATOR, ERROR_UNEXPECTED_END_OF_STREAM,
-        ERROR_UNMATCHED_DELIMITER,
+        LangError, ERROR_INVALID_LITERAL, ERROR_INVALID_OPERATOR, ERROR_UNEXPECTED_END_OF_FILE,
+        ERROR_UNEXPECTED_END_OF_STREAM, ERROR_UNMATCHED_DELIMITER,
     },
     lex::token::{Token, TokenType},
 };
@@ -103,55 +103,34 @@ impl<'i> LangParser<'i> {
     }
 
     pub fn parse(&mut self) -> Result<Expression, LangError> {
-        //check eof here
+        if self.is_eof() {
+            return Err(LangError::from(
+                "expected expression".to_owned(),
+                (self.index, self.index),
+                ERROR_UNEXPECTED_END_OF_FILE,
+            ));
+        }
 
-        match self.peek_one().unwrap().token_type() {
+        let expr: Expression = match self.peek_one().unwrap().token_type() {
             // literals and binary applications
             TokenType::Number(_) | TokenType::Bool(_) | TokenType::Char(_) => {
                 let left = Expression::Literal {
                     lit: self.parse_literal()?,
                 };
 
-                match self.peek_one() {
-                    None => return Ok(left),
-                    Some(tok) => match tok.token_type() {
-                        TokenType::Minus
-                        | TokenType::Plus
-                        | TokenType::Slash
-                        | TokenType::Star
-                        | TokenType::LessThan
-                        | TokenType::GreaterThan
-                        | TokenType::LessThanEq
-                        | TokenType::GreaterThanEq
-                        | TokenType::EqEq
-                        | TokenType::Bang
-                        | TokenType::BangEq => {
-                            // we are parsing a binary expression
-                            let op = self.parse_binary_operator()?;
-                            let right = self.parse()?;
-                            return Ok(Expression::App {
-                                app: Application::Binary {
-                                    op,
-                                    left: Box::new(left),
-                                    right: Box::new(right),
-                                },
-                            });
-                        }
-                        _ => return Ok(left),
-                    },
-                }
+                self.parse_partial(left)?
             }
 
             // unary operators
             TokenType::Minus | TokenType::Bang => {
                 let op = self.parse_unary_operator()?;
                 let expr = self.parse()?;
-                Ok(Expression::App {
+                Expression::App {
                     app: Application::Unary {
                         op,
                         expr: Box::new(expr),
                     },
-                })
+                }
             }
 
             // grouping
@@ -180,33 +159,57 @@ impl<'i> LangParser<'i> {
                         }
                     },
                 };
-                Ok(Expression::Group {
+                Expression::Group {
                     expr: Box::new(expr),
                     span: (start, self.index),
-                })
+                }
             }
             _ => todo!(),
+        };
+
+        return self.parse_partial(expr);
+    }
+
+    fn parse_partial(&mut self, left: Expression) -> Result<Expression, LangError> {
+        if self.is_eof() || self.is_line_end() {
+            return Ok(left); // the expression
+        }
+
+        match self.peek_one() {
+            None => unreachable!(),
+            Some(tok) => match tok.token_type() {
+                TokenType::Minus
+                | TokenType::Plus
+                | TokenType::Slash
+                | TokenType::Star
+                | TokenType::LessThan
+                | TokenType::GreaterThan
+                | TokenType::LessThanEq
+                | TokenType::GreaterThanEq
+                | TokenType::EqEq
+                | TokenType::Bang
+                | TokenType::BangEq => {
+                    // we are parsing a binary expression
+                    let op = self.parse_binary_operator()?;
+                    let right = self.parse()?;
+                    return Ok(Expression::App {
+                        app: Application::Binary {
+                            op,
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        },
+                    });
+                }
+                _ => return Ok(left),
+            },
         }
     }
+
     /*
      <expression> ::= <literal> | <app> | <grouping>
      <app>        ::= <expression> <operator> <expression> | <operator> <expression>
      <grouping>   ::= "(" <expression> ")"
     */
-
-    // Minus,       // -
-    // Plus,        // +
-    // Slash,       // /
-    // Star,        // *
-
-    // // One or two char Tokens
-    // LessThan,      // <
-    // GreaterThan,   // >
-    // LessThanEq,    // <=
-    // GreaterThanEq, // >=
-    // EqEq,          // ==
-    // Bang,          // !
-    // BangEq,        // !=
 
     fn parse_literal(&mut self) -> Result<Literal, LangError> {
         match self.peek_one() {
@@ -286,5 +289,27 @@ impl<'i> LangParser<'i> {
         };
         self.advance_one();
         return Ok(op);
+    }
+
+    /// checks if their are no tokens remaining, or the current token is EOF.
+    fn is_eof(&mut self) -> bool {
+        match self.input().get(self.index) {
+            None => true,
+            Some(tok) => match tok.token_type() {
+                TokenType::EOF => true,
+                _ => false,
+            },
+        }
+    }
+
+    /// checks if the current token is `;`.
+    fn is_line_end(&mut self) -> bool {
+        match self.input().get(self.index) {
+            None => false,
+            Some(tok) => match tok.token_type() {
+                TokenType::EOF => true,
+                _ => false,
+            },
+        }
     }
 }

@@ -15,6 +15,7 @@ pub const ERROR_INVALID_LITERAL: u32 = 7;
 pub const ERROR_INVALID_OPERATOR: u32 = 8;
 pub const ERROR_TYPE_MISMATCH: u32 = 9;
 pub const ERROR_UNMATCHED_DELIMITER: u32 = 10;
+pub const ERROR_UNEXPECTED_END_OF_FILE: u32 = 11;
 
 pub struct LangError {
     number: u32,
@@ -23,22 +24,6 @@ pub struct LangError {
 }
 
 impl LangError {
-    pub fn from_null_span(number: u32, message: String) -> Self {
-        Self {
-            number,
-            span: (0, 0),
-            message,
-        }
-    }
-
-    pub fn from_message(message: String) -> Self {
-        Self {
-            number: 0,
-            span: (0, 0),
-            message,
-        }
-    }
-
     pub fn from(message: String, span: (usize, usize), number: u32) -> Self {
         Self {
             number,

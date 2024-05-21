@@ -10,7 +10,7 @@ mod parse;
 mod repl;
 
 fn main() {
-    let input = "(16 * (17 - 0xf))";
+    let input = "(16 * (17 / 0xf)) + 17 + 12 + 4";
 
     let mut lexer: Lexer = Lexer::new(input);
 
