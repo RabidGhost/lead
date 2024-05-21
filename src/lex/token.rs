@@ -64,6 +64,10 @@ impl Token {
         &self.token_type
     }
 
+    pub fn span(&self) -> (usize, usize) {
+        self.span
+    }
+
     pub fn from(string: &str, start: usize) -> Result<Self, LangError> {
         let ty = match string {
             "(" => TokenType::LeftParen,
