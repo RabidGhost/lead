@@ -1,4 +1,7 @@
-use crate::interpreter::{GlobalAlloc, Interpretable};
+use crate::{
+    interpreter::{GlobalAlloc, Interpretable},
+    parse::ast::Literal,
+};
 use lex::Lexer;
 use parse::LangParser;
 // use miette::NamedSource;
@@ -59,7 +62,7 @@ fn run(file: PathBuf) {
     };
 
     let mut parser: LangParser = LangParser::new(&tokens);
-    let ast = match parser.parse() {
+    let ast = match parser.parse_statement() {
         Ok(expr) => expr,
         Err(e) => {
             eprintln!("{e:?}");
@@ -69,21 +72,24 @@ fn run(file: PathBuf) {
 
     let mut alloc: GlobalAlloc = GlobalAlloc::new();
 
-    alloc.insert(
-        "my_var".to_owned(),
-        parse::ast::Literal::Number {
-            val: 6,
-            span: (0, 0),
-        },
-    );
+    // alloc.insert(
+    //     "my_var".to_owned(),
+    //     parse::ast::Literal::Number {
+    //         val: 6,
+    //         span: (0, 0),
+    //     },
+    // );
 
-    let out = match ast.eval(&mut alloc) {
-        Ok(lit) => lit,
-        Err(e) => {
-            eprintln!("{e:?}");
-            return;
+    let mut out: Literal = Literal::Unit;
+    for statement in ast {
+        out = match statement.eval(&mut alloc) {
+            Ok(lit) => lit,
+            Err(e) => {
+                eprintln!("{e:?}");
+                return;
+            }
         }
-    };
+    }
 
     println!("{input}");
     println!(" = {:?}", out);

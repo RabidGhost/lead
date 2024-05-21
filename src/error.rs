@@ -17,6 +17,7 @@ pub const ERROR_TYPE_MISMATCH: u32 = 9;
 pub const ERROR_UNMATCHED_DELIMITER: u32 = 10;
 pub const ERROR_UNEXPECTED_END_OF_FILE: u32 = 11;
 pub const ERROR_UNKNOWN_VARIABLE: u32 = 12;
+pub const ERROR_EXPECTED: u32 = 13;
 
 pub struct LangError {
     number: u32,

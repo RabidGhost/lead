@@ -14,6 +14,7 @@ pub enum Literal {
     Boolean { val: bool, span: Span },
     Char { val: char, span: Span },
     Number { val: i32, span: Span },
+    Unit,
 }
 
 #[derive(Debug)]
@@ -51,6 +52,17 @@ pub struct BinaryOperator {
     span: Span,
 }
 
+pub struct Assign {
+    pub variable: String,
+    pub value: Expression,
+    span: Span,
+}
+
+pub enum Statement {
+    Assign(Assign),
+    Expr(Expression),
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum OperatorType {
     Plus,
@@ -78,6 +90,7 @@ impl Spans for Literal {
             Literal::Char { val: _, span } => *span,
             Literal::Number { val: _, span } => *span,
             Literal::Boolean { val: _, span } => *span,
+            Literal::Unit => (0, 0),
         }
     }
 }
@@ -184,6 +197,24 @@ impl BinaryOperator {
     }
 }
 
+impl Assign {
+    pub fn from(variable: &Token, value: Expression) -> Self {
+        let name = match variable.token_type() {
+            crate::lex::token::TokenType::Identifier(name) => name.clone(),
+            _ => panic!("should not be here"),
+        };
+
+        let span = (variable.span().0, value.span().1);
+
+        // this is maybe not totally correct, the span misses the `let`
+        Assign {
+            variable: name,
+            value,
+            span,
+        }
+    }
+}
+
 // impl display for ast
 
 impl std::fmt::Debug for Literal {
@@ -192,6 +223,7 @@ impl std::fmt::Debug for Literal {
             Literal::Char { val, span: _ } => write!(f, "{val}"),
             Literal::Boolean { val, span: _ } => write!(f, "{val}"),
             Literal::Number { val, span: _ } => write!(f, "{val}"),
+            Literal::Unit => write!(f, "()"),
         }
     }
 }

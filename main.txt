@@ -1,1 +1,2 @@
-my_var + 18
+let my_var := (3 * 12) - 4;
+my_var * 2

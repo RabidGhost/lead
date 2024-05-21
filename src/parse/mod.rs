@@ -1,12 +1,15 @@
 use crate::{
     error::{
-        LangError, ERROR_INVALID_LITERAL, ERROR_INVALID_OPERATOR, ERROR_UNEXPECTED_END_OF_FILE,
-        ERROR_UNEXPECTED_END_OF_STREAM, ERROR_UNMATCHED_DELIMITER,
+        LangError, ERROR_EXPECTED, ERROR_INVALID_LITERAL, ERROR_INVALID_OPERATOR,
+        ERROR_UNEXPECTED_END_OF_FILE, ERROR_UNEXPECTED_END_OF_STREAM, ERROR_UNMATCHED_DELIMITER,
     },
     lex::token::{Token, TokenType},
+    parse::ast::Assign,
 };
 
-use self::ast::{Application, BinaryOperator, Expression, Literal, OperatorType, UnaryOperator};
+use self::ast::{
+    Application, BinaryOperator, Expression, Literal, OperatorType, Statement, UnaryOperator,
+};
 use self::ops::*;
 
 pub mod ast;
@@ -102,7 +105,36 @@ impl<'i> LangParser<'i> {
         Self { src, index: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<Expression, LangError> {
+    pub fn parse_statement(&mut self) -> Result<Vec<Statement>, LangError> {
+        let mut statements = Vec::new();
+
+        if self.is_eof() {
+            return Ok(statements);
+        }
+
+        match self.peek_one().unwrap().token_type() {
+            TokenType::Let => {
+                self.advance_one();
+                let variable = self.advance_one().ok_or(LangError::from(
+                    "expected identifier".to_owned(),
+                    (self.index - 1, self.index),
+                    ERROR_UNEXPECTED_END_OF_FILE,
+                ))?;
+                self.consume(TokenType::Assign)?;
+                let value = self.parse_expr()?;
+                let statement = Statement::Assign(Assign::from(variable, value));
+                self.consume(TokenType::Semicolon)?;
+                statements.push(statement);
+            }
+            _ => todo!(),
+        }
+
+        statements.push(Statement::Expr(self.parse_expr()?));
+
+        return Ok(statements);
+    }
+
+    pub fn parse_expr(&mut self) -> Result<Expression, LangError> {
         if self.is_eof() {
             return Err(LangError::from(
                 "expected expression".to_owned(),
@@ -124,7 +156,7 @@ impl<'i> LangParser<'i> {
             // unary operators
             TokenType::Minus | TokenType::Bang => {
                 let op = self.parse_unary_operator()?;
-                let expr = self.parse()?;
+                let expr = self.parse_expr()?;
                 Expression::App {
                     app: Application::Unary {
                         op,
@@ -137,7 +169,7 @@ impl<'i> LangParser<'i> {
             TokenType::LeftParen => {
                 let start = self.index;
                 self.advance_one();
-                let expr = self.parse()?;
+                let expr = self.parse_expr()?;
                 match self.peek_one() {
                     None => {
                         return Err(LangError::from(
@@ -168,7 +200,10 @@ impl<'i> LangParser<'i> {
                 id: (*name).clone(),
                 span: self.advance_one().unwrap().span(),
             },
-            _ => todo!(),
+            tok => {
+                dbg!(tok);
+                todo!()
+            }
         };
 
         return self.parse_partial(expr);
@@ -195,7 +230,7 @@ impl<'i> LangParser<'i> {
                 | TokenType::BangEq => {
                     // we are parsing a binary expression
                     let op = self.parse_binary_operator()?;
-                    let right = self.parse()?;
+                    let right = self.parse_expr()?;
                     return Ok(Expression::App {
                         app: Application::Binary {
                             op,
@@ -314,6 +349,29 @@ impl<'i> LangParser<'i> {
                 TokenType::EOF => true,
                 _ => false,
             },
+        }
+    }
+
+    /// consume one token of a given type, erroring if it is not found
+    fn consume(&mut self, ty: TokenType) -> Result<Token, LangError> {
+        match self.peek_one() {
+            None => Err(LangError::from(
+                format!("expected `{:?}`, found end of file", ty),
+                (self.index, self.index),
+                ERROR_UNEXPECTED_END_OF_FILE,
+            )),
+            Some(tok) => {
+                if *tok.token_type() == ty {
+                    self.advance_one();
+                    return Ok(tok.clone());
+                } else {
+                    Err(LangError::from(
+                        format!("expected `{:?}`, found `{}`", ty, tok),
+                        (self.index, self.index),
+                        ERROR_EXPECTED,
+                    ))
+                }
+            }
         }
     }
 }

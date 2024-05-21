@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     error::{LangError, ERROR_TYPE_MISMATCH, ERROR_UNKNOWN_VARIABLE},
-    parse::ast::{Application, Expression, Literal},
+    parse::ast::{Application, Expression, Literal, Statement},
 };
 
 pub struct GlobalAlloc {
@@ -72,6 +72,19 @@ impl Interpretable for Expression {
     }
 }
 
+impl Interpretable for Statement {
+    fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError> {
+        match self {
+            Statement::Expr(expr) => expr.eval(alloc),
+            Self::Assign(assign) => {
+                let expr = assign.value.eval(alloc)?;
+                alloc.allocate(assign.variable.clone(), expr);
+                Ok(Literal::Unit)
+            }
+        }
+    }
+}
+
 impl TryInto<i32> for Literal {
     type Error = LangError;
     fn try_into(self) -> Result<i32, Self::Error> {
@@ -85,6 +98,11 @@ impl TryInto<i32> for Literal {
             Self::Boolean { val: _, span } => Err(LangError::from(
                 format!("expected type of `num`, found `bool`"),
                 span,
+                ERROR_TYPE_MISMATCH,
+            )),
+            Self::Unit => Err(LangError::from(
+                format!("expected type of `num`, found `()`"),
+                (0, 0),
                 ERROR_TYPE_MISMATCH,
             )),
         }
@@ -106,6 +124,11 @@ impl TryInto<char> for Literal {
                 span,
                 ERROR_TYPE_MISMATCH,
             )),
+            Self::Unit => Err(LangError::from(
+                format!("expected type of `char`, found `()`"),
+                (0, 0),
+                ERROR_TYPE_MISMATCH,
+            )),
         }
     }
 }
@@ -123,6 +146,11 @@ impl TryInto<bool> for Literal {
             Self::Number { val: _, span } => Err(LangError::from(
                 format!("expected type of `bool`, found `num`"),
                 span,
+                ERROR_TYPE_MISMATCH,
+            )),
+            Self::Unit => Err(LangError::from(
+                format!("expected type of `bool`, found `()`"),
+                (0, 0),
                 ERROR_TYPE_MISMATCH,
             )),
         }
