@@ -21,6 +21,7 @@ pub enum Expression {
     App { app: Application },
     Group { expr: Box<Expression>, span: Span },
     Literal { lit: Literal },
+    Identifier { id: String, span: Span },
 }
 
 #[derive(Debug)]
@@ -74,9 +75,9 @@ pub trait Spans {
 impl Spans for Literal {
     fn span(&self) -> Span {
         match self {
-            Literal::Char { val, span } => *span,
-            Literal::Number { val, span } => *span,
-            Literal::Boolean { val, span } => *span,
+            Literal::Char { val: _, span } => *span,
+            Literal::Number { val: _, span } => *span,
+            Literal::Boolean { val: _, span } => *span,
         }
     }
 }
@@ -85,8 +86,9 @@ impl Spans for Expression {
     fn span(&self) -> Span {
         match self {
             Expression::Literal { lit } => lit.span(),
-            Expression::Group { expr, span } => *span,
+            Expression::Group { expr: _, span } => *span,
             Expression::App { app } => app.span(),
+            Expression::Identifier { id: _, span } => *span,
         }
     }
 }
@@ -95,7 +97,7 @@ impl Spans for Application {
     fn span(&self) -> Span {
         match self {
             Application::Unary { op, expr } => (op.span().0, expr.span().1),
-            Application::Binary { op, left, right } => (left.span().0, right.span().1),
+            Application::Binary { op: _, left, right } => (left.span().0, right.span().1),
         }
     }
 }
@@ -150,6 +152,10 @@ impl UnaryOperator {
             span: tok.span(),
         }
     }
+
+    pub fn f(&self, x: Literal) -> OpRet {
+        (self.f)(x)
+    }
 }
 
 impl BinaryOperator {
@@ -172,6 +178,10 @@ impl BinaryOperator {
             span: tok.span(),
         }
     }
+
+    pub fn f(&self, x: Literal, y: Literal) -> OpRet {
+        (self.f)(x, y)
+    }
 }
 
 // impl display for ast
@@ -179,9 +189,9 @@ impl BinaryOperator {
 impl std::fmt::Debug for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::Char { val, span } => write!(f, "{val}"),
-            Literal::Boolean { val, span } => write!(f, "{val}"),
-            Literal::Number { val, span } => write!(f, "{val}"),
+            Literal::Char { val, span: _ } => write!(f, "{val}"),
+            Literal::Boolean { val, span: _ } => write!(f, "{val}"),
+            Literal::Number { val, span: _ } => write!(f, "{val}"),
         }
     }
 }

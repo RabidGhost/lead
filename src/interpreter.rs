@@ -1,33 +1,73 @@
+use std::collections::HashMap;
+
 use crate::{
-    error::{LangError, ERROR_TYPE_MISMATCH},
+    error::{LangError, ERROR_TYPE_MISMATCH, ERROR_UNKNOWN_VARIABLE},
     parse::ast::{Application, Expression, Literal},
 };
 
+pub struct GlobalAlloc {
+    variables: HashMap<String, Literal>,
+}
+
+trait LangAlloc {
+    fn allocate(&mut self, name: String, var: Literal);
+    fn fetch(&self, name: &String) -> Option<Literal>;
+}
+
+impl LangAlloc for GlobalAlloc {
+    fn allocate(&mut self, name: String, var: Literal) {
+        self.variables.insert(name, var);
+    }
+
+    fn fetch(&self, name: &String) -> Option<Literal> {
+        self.variables.get(name).cloned()
+    }
+}
+
+impl GlobalAlloc {
+    pub fn new() -> Self {
+        Self {
+            variables: HashMap::new(),
+        }
+    }
+
+    /// for debugging and testing
+    pub fn insert(&mut self, name: String, var: Literal) {
+        self.allocate(name, var)
+    }
+}
+
 pub trait Interpretable {
-    fn eval(&self) -> Result<Literal, LangError>;
+    fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError>;
 }
 
 impl Interpretable for Literal {
-    fn eval(&self) -> Result<Literal, LangError> {
+    fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError> {
         Ok(*self)
     }
 }
 
 impl Interpretable for Application {
-    fn eval(&self) -> Result<Literal, LangError> {
+    fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError> {
         match self {
-            Self::Unary { op, expr } => op.f((**expr).eval()?),
-            Self::Binary { op, left, right } => op.f((**left).eval()?, (**right).eval()?),
+            Self::Unary { op, expr } => op.f((**expr).eval(alloc)?),
+            Self::Binary { op, left, right } => op.f((**left).eval(alloc)?, (**right).eval(alloc)?),
         }
     }
 }
 
 impl Interpretable for Expression {
-    fn eval(&self) -> Result<Literal, LangError> {
+    fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError> {
         match self {
-            Expression::Literal { lit } => lit.eval(),
-            Expression::Group { expr, span: _ } => (**expr).eval(),
-            Expression::App { app } => app.eval(),
+            Expression::Literal { lit } => lit.eval(alloc),
+            Expression::Group { expr, span: _ } => (**expr).eval(alloc),
+            Expression::App { app } => app.eval(alloc),
+            Expression::Identifier { id, span } => alloc.fetch(id).ok_or(LangError::from(
+                format!("no such variable `{}`", id),
+                *span,
+                ERROR_UNKNOWN_VARIABLE,
+            )),
+            _ => todo!("implement interpret for indentifiers"),
         }
     }
 }

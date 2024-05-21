@@ -164,6 +164,10 @@ impl<'i> LangParser<'i> {
                     span: (start, self.index),
                 }
             }
+            TokenType::Identifier(name) => Expression::Identifier {
+                id: (*name).clone(),
+                span: self.advance_one().unwrap().span(),
+            },
             _ => todo!(),
         };
 
