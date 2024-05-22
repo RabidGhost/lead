@@ -65,11 +65,20 @@ pub struct If {
     pub iff: Vec<Statement>,
     span: Span,
 }
+
+#[derive(Debug)]
+pub struct While {
+    pub condition: Expression,
+    pub body: Vec<Statement>,
+    span: Span,
+}
+
 #[derive(Debug)]
 pub enum Statement {
     Assign(Assign),
     Expr(Expression),
     If(If),
+    While(While),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -229,6 +238,16 @@ impl If {
         Self {
             condition,
             iff: body,
+            span,
+        }
+    }
+}
+
+impl While {
+    pub fn from(condition: Expression, body: Vec<Statement>, span: Span) -> Self {
+        Self {
+            condition,
+            body,
             span,
         }
     }

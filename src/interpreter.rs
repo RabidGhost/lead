@@ -84,16 +84,30 @@ impl Interpretable for Statement {
             Statement::If(iff) => {
                 let cond: bool = iff.condition.eval(alloc)?.try_into()?;
                 if cond {
-                    let mut end_state: Literal = Literal::Unit;
-                    for statement in &iff.iff[..] {
-                        end_state = statement.eval(alloc)?
-                    }
-                    return Ok(end_state);
+                    return eval_statements(alloc, &iff.iff);
                 }
                 Ok(Literal::Unit)
             }
+            Statement::While(whilee) => {
+                let mut end_state: Literal = Literal::Unit;
+                while whilee.condition.eval(alloc)?.try_into()? {
+                    end_state = eval_statements(alloc, &whilee.body)?;
+                }
+                Ok(end_state)
+            }
         }
     }
+}
+
+fn eval_statements(
+    alloc: &mut impl LangAlloc,
+    statments: &Vec<Statement>,
+) -> Result<Literal, LangError> {
+    let mut end_state: Literal = Literal::Unit;
+    for statement in statments {
+        end_state = statement.eval(alloc)?
+    }
+    return Ok(end_state);
 }
 
 impl TryInto<i32> for Literal {

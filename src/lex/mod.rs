@@ -2,10 +2,7 @@ pub mod token;
 
 use TSPL::{self, Parser};
 
-use crate::error::{
-    LangError, ERROR_INVALID_CHARACTER_LITERAL, ERROR_INVALID_INDENTIFIER,
-    ERROR_INVALID_NUMBER_LITERAL,
-};
+use crate::error::{LangError, ERROR_INVALID_CHARACTER_LITERAL, ERROR_INVALID_NUMBER_LITERAL};
 use token::{Token, TokenType, KEYWORDS};
 
 pub struct Lexer<'l> {

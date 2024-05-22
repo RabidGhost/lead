@@ -9,6 +9,7 @@ use crate::{
 
 use self::ast::{
     Application, BinaryOperator, Expression, If, Literal, OperatorType, Statement, UnaryOperator,
+    While,
 };
 use self::ops::*;
 
@@ -117,10 +118,10 @@ impl<'i> LangParser<'i> {
             let statement = match self.peek_one().unwrap().token_type() {
                 TokenType::EOF => break,
                 TokenType::RightBrace => {
-                    self.consume(TokenType::RightBrace)?;
+                    //self.consume(TokenType::RightBrace)?;
                     break;
                 }
-                TokenType::Let => Statement::Assign(self.parse_let()?),
+
                 TokenType::Identifier(_) => {
                     //self.advance_one();
                     match self.peek_nth(2)?.token_type() {
@@ -134,7 +135,11 @@ impl<'i> LangParser<'i> {
                 | TokenType::Char(_)
                 | TokenType::Bang
                 | TokenType::Minus => Statement::Expr(self.parse_expr()?),
-                TokenType::If => Statement::If(self.parse_if()?),
+
+                // keywords
+                TokenType::Let => Statement::Assign(self.parse_let()?),
+                TokenType::While | TokenType::If => self.parse_wif()?,
+
                 _ => todo!(),
             };
 
@@ -145,15 +150,23 @@ impl<'i> LangParser<'i> {
         return Ok(buf);
     }
 
-    pub fn parse_if(&mut self) -> Result<If, LangError> {
+    pub fn parse_wif(&mut self) -> Result<Statement, LangError> {
         let start = self.index;
-        self.consume(TokenType::If)?;
-        let expr = self.parse_expr()?;
+        let ty = self.advance_one().unwrap().token_type();
+        //self.consume(TokenType::If)?;
+        let condition = self.parse_expr()?;
         self.consume(TokenType::LeftBrace)?;
 
-        let body_statements: Vec<Statement> = self.parse_statement(Vec::new())?;
+        let body: Vec<Statement> = self.parse_statement(Vec::new())?;
+        self.consume(TokenType::RightBrace)?;
 
-        Ok(If::from(expr, body_statements, (start, self.index)))
+        Ok(match ty {
+            TokenType::If => Statement::If(If::from(condition, body, (start, self.index))),
+            TokenType::While => Statement::While(While::from(condition, body, (start, self.index))),
+            _ => {
+                unreachable!()
+            }
+        })
     }
 
     pub fn parse_let(&mut self) -> Result<Assign, LangError> {
@@ -334,7 +347,7 @@ impl<'i> LangParser<'i> {
         return Ok(op);
     }
 
-    /// checks if their are no tokens remaining, or the current token is EOF.
+    /// checks if their are no tokens remaining, or the current token is `EOF`.
     fn is_eof(&mut self) -> bool {
         match self.input().get(self.index) {
             None => true,
