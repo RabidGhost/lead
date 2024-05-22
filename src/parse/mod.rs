@@ -8,7 +8,7 @@ use crate::{
 };
 
 use self::ast::{
-    Application, BinaryOperator, Expression, Literal, OperatorType, Statement, UnaryOperator,
+    Application, BinaryOperator, Expression, If, Literal, OperatorType, Statement, UnaryOperator,
 };
 use self::ops::*;
 
@@ -116,6 +116,10 @@ impl<'i> LangParser<'i> {
         loop {
             let statement = match self.peek_one().unwrap().token_type() {
                 TokenType::EOF => break,
+                TokenType::RightBrace => {
+                    self.consume(TokenType::RightBrace)?;
+                    break;
+                }
                 TokenType::Let => Statement::Assign(self.parse_let()?),
                 TokenType::Identifier(_) => {
                     //self.advance_one();
@@ -124,7 +128,13 @@ impl<'i> LangParser<'i> {
                         _ => Statement::Expr(self.parse_expr()?),
                     }
                 }
-
+                // raw expression
+                TokenType::Number(_)
+                | TokenType::Bool(_)
+                | TokenType::Char(_)
+                | TokenType::Bang
+                | TokenType::Minus => Statement::Expr(self.parse_expr()?),
+                TokenType::If => Statement::If(self.parse_if()?),
                 _ => todo!(),
             };
 
@@ -133,6 +143,17 @@ impl<'i> LangParser<'i> {
 
         //buf.push(Statement::Expr(self.parse_expr()?));
         return Ok(buf);
+    }
+
+    pub fn parse_if(&mut self) -> Result<If, LangError> {
+        let start = self.index;
+        self.consume(TokenType::If)?;
+        let expr = self.parse_expr()?;
+        self.consume(TokenType::LeftBrace)?;
+
+        let body_statements: Vec<Statement> = self.parse_statement(Vec::new())?;
+
+        Ok(If::from(expr, body_statements, (start, self.index)))
     }
 
     pub fn parse_let(&mut self) -> Result<Assign, LangError> {

@@ -103,22 +103,17 @@ impl<'l> Lexer<'l> {
                     }
                 };
             }
+            'a'..='z' | 'A'..='Z' => {
+                let name = self.take_while(|ch| Self::is_valid_identifier_char(ch));
+
+                if KEYWORDS.contains(&name) {
+                    tok = Token::from_keyword(name, start)?;
+                } else {
+                    tok = Token::new(TokenType::Identifier(name.to_owned()), start, name.len())
+                }
+            }
             _ => {
-                let mut found_keyword = false;
-                // check keywords
-                for keyword in KEYWORDS {
-                    if self.starts_with_keyword(keyword) {
-                        self.consume(keyword).unwrap();
-                        tok = Token::from_keyword(keyword, start)?;
-                        found_keyword = true;
-                        break;
-                    }
-                }
-                if !found_keyword {
-                    let identifier = self.parse_identifier()?;
-                    let identifier_length = identifier.len();
-                    tok = Token::new(TokenType::Identifier(identifier), start, identifier_length);
-                }
+                unimplemented!()
             }
         }
 
@@ -126,36 +121,90 @@ impl<'l> Lexer<'l> {
         return self.lex(buf);
     }
 
-    // checks if the next characters are a valid keyword, and also not part of a longer identifier
-    fn starts_with_keyword(&mut self, keyword: &str) -> bool {
-        self.starts_with(keyword)
-            && !Self::is_valid_identifier_char(
-                self.input().chars().nth(keyword.len()).unwrap_or(' '),
-            )
-    }
-
+    /// returns weather a given character is a valid non starting identifier character
     fn is_valid_identifier_char(ch: char) -> bool {
         match ch {
             '_' => true,
-            ch => ch.is_alphabetic() || ch.is_digit(10),
+            ch => ch.is_ascii_alphabetic() || ch.is_digit(10),
         }
     }
+}
 
-    fn parse_identifier(&mut self) -> Result<String, LangError> {
-        self.skip_trivia();
-        if match self.peek_one() {
-            Some(ch) => ch.is_alphabetic(),
-            None => false,
-        } {
-            Ok(self
-                .take_while(|c| c.is_ascii_alphanumeric() || "_".contains(c))
-                .to_owned())
-        } else {
-            Err(LangError::from(
-                "expected valid identifier".to_owned(),
-                (self.index, self.index + 1),
-                ERROR_INVALID_INDENTIFIER,
-            ))
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type Ty = TokenType;
+
+    fn process(src: &str) -> Vec<TokenType> {
+        let mut lexer = Lexer::new(src);
+        let mut result = Vec::new();
+        lexer.lex(&mut result).unwrap();
+
+        result.iter().map(|x| x.token_type().to_owned()).collect()
+    }
+
+    #[test]
+    fn keywords() {
+        assert_eq!(
+            vec![
+                TokenType::Bool(true),
+                TokenType::Bool(false),
+                TokenType::Let,
+                TokenType::If,
+                TokenType::For,
+                TokenType::While
+            ],
+            KEYWORDS
+                .into_iter()
+                .map(|keyword| {
+                    let mut lexer = Lexer::new(keyword);
+                    let mut tokens = Vec::new();
+                    lexer.lex(&mut tokens).unwrap();
+                    return tokens.first().unwrap().clone().token_type().to_owned();
+                })
+                .collect::<Vec<TokenType>>()
+        );
+    }
+
+    #[test]
+    fn simple_if() {
+        let src = "if (my_var < 3) { 42 }";
+        let expected: Vec<TokenType> = vec![
+            Ty::If,
+            Ty::LeftParen,
+            Ty::Identifier("my_var".to_owned()),
+            Ty::LessThan,
+            Ty::Number(3),
+            Ty::RightParen,
+            Ty::LeftBrace,
+            Ty::Number(42),
+            Ty::RightBrace,
+            Ty::EOF,
+        ];
+        assert_eq!(expected, process(src));
+    }
+
+    #[test]
+    fn multiline_if() {
+        let src = "let my_var := 2;\nif (my_var < 3) {\n\t42\n}";
+        let expected: Vec<TokenType> = vec![
+            Ty::Let,
+            Ty::Identifier("my_var".to_owned()),
+            Ty::Assign,
+            Ty::Number(2),
+            Ty::Semicolon,
+            Ty::If,
+            Ty::LeftParen,
+            Ty::Identifier("my_var".to_owned()),
+            Ty::LessThan,
+            Ty::Number(3),
+            Ty::RightParen,
+            Ty::LeftBrace,
+            Ty::Number(42),
+            Ty::RightBrace,
+            Ty::EOF,
+        ];
+        assert_eq!(expected, process(src));
     }
 }

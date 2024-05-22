@@ -52,15 +52,24 @@ pub struct BinaryOperator {
     span: Span,
 }
 
+#[derive(Debug)]
 pub struct Assign {
     pub variable: String,
     pub value: Expression,
     span: Span,
 }
 
+#[derive(Debug)]
+pub struct If {
+    pub condition: Expression,
+    pub iff: Vec<Statement>,
+    span: Span,
+}
+#[derive(Debug)]
 pub enum Statement {
     Assign(Assign),
     Expr(Expression),
+    If(If),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -210,6 +219,16 @@ impl Assign {
         Assign {
             variable: name,
             value,
+            span,
+        }
+    }
+}
+
+impl If {
+    pub fn from(condition: Expression, body: Vec<Statement>, span: Span) -> Self {
+        Self {
+            condition,
+            iff: body,
             span,
         }
     }

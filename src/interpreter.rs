@@ -81,6 +81,17 @@ impl Interpretable for Statement {
                 alloc.allocate(assign.variable.clone(), expr);
                 Ok(Literal::Unit)
             }
+            Statement::If(iff) => {
+                let cond: bool = iff.condition.eval(alloc)?.try_into()?;
+                if cond {
+                    let mut end_state: Literal = Literal::Unit;
+                    for statement in &iff.iff[..] {
+                        end_state = statement.eval(alloc)?
+                    }
+                    return Ok(end_state);
+                }
+                Ok(Literal::Unit)
+            }
         }
     }
 }
