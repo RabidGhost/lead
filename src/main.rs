@@ -1,6 +1,6 @@
 use crate::{
     interpreter::{GlobalAlloc, Interpretable},
-    parse::ast::Literal,
+    parse::ast::{Literal, Statement},
 };
 use lex::Lexer;
 use parse::LangParser;
@@ -62,7 +62,8 @@ fn run(file: PathBuf) {
     };
 
     let mut parser: LangParser = LangParser::new(&tokens);
-    let ast = match parser.parse_statement() {
+    let statements_buf: Vec<Statement> = Vec::new();
+    let ast = match parser.parse_statement(statements_buf) {
         Ok(expr) => expr,
         Err(e) => {
             eprintln!("{e:?}");

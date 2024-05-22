@@ -105,33 +105,48 @@ impl<'i> LangParser<'i> {
         Self { src, index: 0 }
     }
 
-    pub fn parse_statement(&mut self) -> Result<Vec<Statement>, LangError> {
-        let mut statements = Vec::new();
-
+    pub fn parse_statement(
+        &mut self,
+        mut buf: Vec<Statement>,
+    ) -> Result<Vec<Statement>, LangError> {
         if self.is_eof() {
-            return Ok(statements);
+            return Ok(buf);
         }
 
-        match self.peek_one().unwrap().token_type() {
-            TokenType::Let => {
-                self.advance_one();
-                let variable = self.advance_one().ok_or(LangError::from(
-                    "expected identifier".to_owned(),
-                    (self.index - 1, self.index),
-                    ERROR_UNEXPECTED_END_OF_FILE,
-                ))?;
-                self.consume(TokenType::Assign)?;
-                let value = self.parse_expr()?;
-                let statement = Statement::Assign(Assign::from(variable, value));
-                self.consume(TokenType::Semicolon)?;
-                statements.push(statement);
-            }
-            _ => todo!(),
+        loop {
+            let statement = match self.peek_one().unwrap().token_type() {
+                TokenType::EOF => break,
+                TokenType::Let => Statement::Assign(self.parse_let()?),
+                TokenType::Identifier(_) => {
+                    //self.advance_one();
+                    match self.peek_nth(2)?.token_type() {
+                        TokenType::Assign => Statement::Assign(self.parse_let()?),
+                        _ => Statement::Expr(self.parse_expr()?),
+                    }
+                }
+
+                _ => todo!(),
+            };
+
+            buf.push(statement);
         }
 
-        statements.push(Statement::Expr(self.parse_expr()?));
+        //buf.push(Statement::Expr(self.parse_expr()?));
+        return Ok(buf);
+    }
 
-        return Ok(statements);
+    pub fn parse_let(&mut self) -> Result<Assign, LangError> {
+        self.consume(TokenType::Let)?;
+        let variable = self.advance_one().ok_or(LangError::from(
+            "expected identifier".to_owned(),
+            (self.index - 1, self.index),
+            ERROR_UNEXPECTED_END_OF_FILE,
+        ))?;
+        self.consume(TokenType::Assign)?;
+        let value = self.parse_expr()?;
+        let assign = Assign::from(variable, value);
+        self.consume(TokenType::Semicolon)?;
+        Ok(assign)
     }
 
     pub fn parse_expr(&mut self) -> Result<Expression, LangError> {
@@ -143,7 +158,7 @@ impl<'i> LangParser<'i> {
             ));
         }
 
-        let expr: Expression = match self.peek_one().unwrap().token_type() {
+        let expr: Expression = match self.peek_one()?.token_type() {
             // literals and binary applications
             TokenType::Number(_) | TokenType::Bool(_) | TokenType::Char(_) => {
                 let left = Expression::Literal {
@@ -170,26 +185,17 @@ impl<'i> LangParser<'i> {
                 let start = self.index;
                 self.advance_one();
                 let expr = self.parse_expr()?;
-                match self.peek_one() {
-                    None => {
+                match self.peek_one()?.token_type() {
+                    TokenType::RightParen => {
+                        self.advance_one();
+                    }
+                    _ => {
                         return Err(LangError::from(
-                            "expected unary operator, found end of file".to_owned(),
+                            "expected closing delimiter `)`, found `{tok}`".to_owned(),
                             (self.index, self.index),
-                            ERROR_UNEXPECTED_END_OF_STREAM,
+                            ERROR_UNMATCHED_DELIMITER,
                         ))
                     }
-                    Some(tok) => match tok.token_type() {
-                        TokenType::RightParen => {
-                            self.advance_one();
-                        }
-                        _ => {
-                            return Err(LangError::from(
-                                "expected closing delimiter `)`, found `{tok}`".to_owned(),
-                                (self.index, self.index),
-                                ERROR_UNMATCHED_DELIMITER,
-                            ))
-                        }
-                    },
                 };
                 Expression::Group {
                     expr: Box::new(expr),
@@ -214,33 +220,30 @@ impl<'i> LangParser<'i> {
             return Ok(left); // the expression
         }
 
-        match self.peek_one() {
-            None => unreachable!(),
-            Some(tok) => match tok.token_type() {
-                TokenType::Minus
-                | TokenType::Plus
-                | TokenType::Slash
-                | TokenType::Star
-                | TokenType::LessThan
-                | TokenType::GreaterThan
-                | TokenType::LessThanEq
-                | TokenType::GreaterThanEq
-                | TokenType::EqEq
-                | TokenType::Bang
-                | TokenType::BangEq => {
-                    // we are parsing a binary expression
-                    let op = self.parse_binary_operator()?;
-                    let right = self.parse_expr()?;
-                    return Ok(Expression::App {
-                        app: Application::Binary {
-                            op,
-                            left: Box::new(left),
-                            right: Box::new(right),
-                        },
-                    });
-                }
-                _ => return Ok(left),
-            },
+        match self.peek_one()?.token_type() {
+            TokenType::Minus
+            | TokenType::Plus
+            | TokenType::Slash
+            | TokenType::Star
+            | TokenType::LessThan
+            | TokenType::GreaterThan
+            | TokenType::LessThanEq
+            | TokenType::GreaterThanEq
+            | TokenType::EqEq
+            | TokenType::Bang
+            | TokenType::BangEq => {
+                // we are parsing a binary expression
+                let op = self.parse_binary_operator()?;
+                let right = self.parse_expr()?;
+                return Ok(Expression::App {
+                    app: Application::Binary {
+                        op,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                });
+            }
+            _ => return Ok(left),
         }
     }
 
@@ -251,58 +254,38 @@ impl<'i> LangParser<'i> {
     */
 
     fn parse_literal(&mut self) -> Result<Literal, LangError> {
-        match self.peek_one() {
-            None => {
+        let tok = self.peek_one()?;
+        let literal = match tok.token_type() {
+            TokenType::Bool(b) => Literal::from_bool(tok, *b),
+            TokenType::Char(c) => Literal::from_char(tok, *c),
+            TokenType::Number(n) => Literal::from_number(tok, (*n).try_into().unwrap()), // todo: fix this panic
+            _ => {
                 return Err(LangError::from(
-                    "expected literal, found end of file".to_owned(),
-                    (self.index, self.index),
-                    ERROR_UNEXPECTED_END_OF_STREAM,
+                    format!("expected literal, found `{tok}`"),
+                    tok.span(),
+                    ERROR_INVALID_LITERAL,
                 ))
             }
-            Some(tok) => {
-                let literal = match tok.token_type() {
-                    TokenType::Bool(b) => Literal::from_bool(tok, *b),
-                    TokenType::Char(c) => Literal::from_char(tok, *c),
-                    TokenType::Number(n) => Literal::from_number(tok, (*n).try_into().unwrap()), // todo: fix this panic
-                    _ => {
-                        return Err(LangError::from(
-                            format!("expected literal, found `{tok}`"),
-                            tok.span(),
-                            ERROR_INVALID_LITERAL,
-                        ))
-                    }
-                };
-                self.advance_one();
-                Ok(literal)
-            }
-        }
+        };
+        self.advance_one();
+        Ok(literal)
     }
 
     fn parse_unary_operator(&mut self) -> Result<UnaryOperator, LangError> {
-        match self.peek_one() {
-            None => {
+        let tok = self.peek_one()?;
+        let op = match tok.token_type() {
+            TokenType::Bang => UnaryOperator::from(tok, OperatorType::Not),
+            TokenType::Minus => UnaryOperator::from(tok, OperatorType::Minus),
+            _ => {
                 return Err(LangError::from(
-                    "expected unary operator, found end of file".to_owned(),
-                    (self.index, self.index),
-                    ERROR_UNEXPECTED_END_OF_STREAM,
+                    format!("`{tok}` is not a valid unary operator"),
+                    tok.span(),
+                    ERROR_INVALID_OPERATOR,
                 ))
             }
-            Some(tok) => {
-                let op = match tok.token_type() {
-                    TokenType::Bang => UnaryOperator::from(tok, OperatorType::Not),
-                    TokenType::Minus => UnaryOperator::from(tok, OperatorType::Minus),
-                    _ => {
-                        return Err(LangError::from(
-                            format!("`{tok}` is not a valid unary operator"),
-                            tok.span(),
-                            ERROR_INVALID_OPERATOR,
-                        ))
-                    }
-                };
-                self.advance_one();
-                return Ok(op);
-            }
-        }
+        };
+        self.advance_one();
+        return Ok(op);
     }
 
     fn parse_binary_operator(&mut self) -> Result<BinaryOperator, LangError> {
@@ -354,7 +337,7 @@ impl<'i> LangParser<'i> {
 
     /// consume one token of a given type, erroring if it is not found
     fn consume(&mut self, ty: TokenType) -> Result<Token, LangError> {
-        match self.peek_one() {
+        match Parser::peek_one(self) {
             None => Err(LangError::from(
                 format!("expected `{:?}`, found end of file", ty),
                 (self.index, self.index),
@@ -373,5 +356,25 @@ impl<'i> LangParser<'i> {
                 }
             }
         }
+    }
+
+    fn peek_one(&mut self) -> Result<&Token, LangError> {
+        Ok(Parser::peek_one(self).ok_or(LangError::from(
+            "expected EOF".to_owned(),
+            (self.index, self.index + 1),
+            ERROR_UNEXPECTED_END_OF_FILE,
+        ))?)
+    }
+
+    fn peek_nth(&mut self, count: usize) -> Result<&Token, LangError> {
+        Ok(self
+            .peek_many(count)
+            .ok_or(LangError::from(
+                "expected EOF".to_owned(),
+                (self.index, self.index + count),
+                ERROR_UNEXPECTED_END_OF_FILE,
+            ))?
+            .get(count - 1)
+            .unwrap())
     }
 }
