@@ -2,19 +2,16 @@ use crate::{
     interpreter::{GlobalAlloc, Interpretable},
     parse::ast::{Literal, Statement},
 };
+use clap::{Parser, Subcommand};
 use lex::Lexer;
 use parse::LangParser;
-// use miette::NamedSource;
-// use miette::{Diagnostic, Result, SourceSpan};
-use clap::{Parser, Subcommand};
 use std::{fs::read_to_string, path::PathBuf};
 
+mod air;
 mod error;
 mod interpreter;
-mod lang;
 mod lex;
 mod parse;
-mod repl;
 
 #[derive(Parser)]
 #[command(about, long_about = None)]
