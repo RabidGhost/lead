@@ -187,6 +187,10 @@ impl UnaryOperator {
     pub fn f(&self, x: Literal) -> OpRet {
         (self.f)(x)
     }
+
+    pub fn ty(&self) -> OperatorType {
+        self.ty
+    }
 }
 
 impl BinaryOperator {

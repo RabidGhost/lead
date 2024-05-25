@@ -2,7 +2,9 @@ use crate::{
     interpreter::{GlobalAlloc, Interpretable},
     parse::ast::{Literal, Statement},
 };
+use air::Lowerable;
 use clap::{Parser, Subcommand};
+use error::LangError;
 use lex::Lexer;
 use parse::LangParser;
 use std::{fs::read_to_string, path::PathBuf};
@@ -26,7 +28,9 @@ enum Commands {
     Run {
         file: PathBuf,
     },
-
+    Build {
+        file: PathBuf,
+    },
     Repl,
 }
 
@@ -35,6 +39,7 @@ fn main() {
 
     match cli.command {
         Commands::Run { file } => run(file),
+        Commands::Build { file } => build(file),
         _ => todo!("implement repl"),
     }
 }
@@ -48,35 +53,15 @@ fn run(file: PathBuf) {
         }
     };
 
-    let mut lexer: Lexer = Lexer::new(&input);
-
-    let tokens = match lexer.run() {
-        Ok(tokens) => tokens,
+    let ast = match run_frontend(&input) {
+        Ok(src) => src,
         Err(e) => {
-            eprintln!("{e:?}");
-            return;
-        }
-    };
-
-    let mut parser: LangParser = LangParser::new(&tokens);
-    let statements_buf: Vec<Statement> = Vec::new();
-    let ast = match parser.parse_statement(statements_buf) {
-        Ok(expr) => expr,
-        Err(e) => {
-            eprintln!("{e:?}");
+            eprintln!("{e:#?}");
             return;
         }
     };
 
     let mut alloc: GlobalAlloc = GlobalAlloc::new();
-
-    // alloc.insert(
-    //     "my_var".to_owned(),
-    //     parse::ast::Literal::Number {
-    //         val: 6,
-    //         span: (0, 0),
-    //     },
-    // );
 
     let mut out: Literal = Literal::Unit;
     for statement in ast {
@@ -91,4 +76,43 @@ fn run(file: PathBuf) {
 
     println!("{input}");
     println!(" = {:?}", out);
+}
+
+fn run_frontend(src: &str) -> Result<Vec<Statement>, LangError> {
+    let mut lexer: Lexer = Lexer::new(src);
+    let tokens = match lexer.run() {
+        Ok(tokens) => tokens,
+        Err(es) => return Err(es.first().unwrap().to_owned()),
+    };
+    let mut parser: LangParser = LangParser::new(&tokens);
+    let statements_buf: Vec<Statement> = Vec::new();
+    parser.parse_statement(statements_buf)
+}
+
+fn build(file: PathBuf) {
+    let input: String = match read_to_string(file.as_path()) {
+        Ok(src) => src,
+        Err(e) => {
+            eprintln!("error reading file: {e}");
+            return;
+        }
+    };
+
+    let ast = match run_frontend(&input) {
+        Ok(src) => src,
+        Err(e) => {
+            eprintln!("{e:#?}");
+            return;
+        }
+    };
+
+    for statement in ast {
+        match statement {
+            Statement::Expr(expr) => match expr.lower() {
+                Ok(air) => print!("{air}"),
+                Err(e) => eprintln!("{e:#?}"),
+            },
+            _ => todo!(),
+        }
+    }
 }
