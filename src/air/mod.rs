@@ -69,6 +69,22 @@ impl Lowerable for Application {
                 }
                 Ok(block)
             }
+            Application::Binary { op, left, right } => {
+                let mut rx_block: Block = left.lower()?;
+                let rx: Reg = rx_block.output_register;
+                let ry_block: Block = right.lower()?;
+                let ry: Reg = ry_block.output_register;
+                rx_block.extend(ry_block);
+
+                rx_block.append(match op.ty() {
+                    OperatorType::Plus => Instruction::ADD(next_register(), rx, ry),
+                    OperatorType::Minus => Instruction::SUB(next_register(), rx, ry),
+                    OperatorType::Multiply => Instruction::MUL(next_register(), rx, ry),
+                    OperatorType::Divide => Instruction::DIV(next_register(), rx, ry),
+                    _ => todo!(),
+                });
+                Ok(rx_block)
+            }
             _ => todo!(),
         }
     }
@@ -79,6 +95,7 @@ impl Lowerable for Expression {
         match self {
             Expression::Literal { lit } => lit.lower(),
             Expression::App { app } => app.lower(), // incomplete implementation
+            Expression::Group { expr, span: _ } => expr.lower(),
             _ => todo!(),
         }
     }

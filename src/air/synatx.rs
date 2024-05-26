@@ -125,3 +125,17 @@ impl std::fmt::Display for Block {
         Ok(())
     }
 }
+
+impl std::iter::Extend<Instruction> for Block {
+    fn extend<T: IntoIterator<Item = Instruction>>(&mut self, iter: T) {
+        self.instructions.extend(iter)
+    }
+}
+
+impl std::iter::IntoIterator for Block {
+    type Item = Instruction;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.instructions.into_iter()
+    }
+}

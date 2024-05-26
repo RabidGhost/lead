@@ -217,6 +217,10 @@ impl BinaryOperator {
     pub fn f(&self, x: Literal, y: Literal) -> OpRet {
         (self.f)(x, y)
     }
+
+    pub fn ty(&self) -> OperatorType {
+        self.ty
+    }
 }
 
 impl Assign {

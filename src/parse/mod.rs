@@ -133,6 +133,7 @@ impl<'i> LangParser<'i> {
                 TokenType::Number(_)
                 | TokenType::Bool(_)
                 | TokenType::Char(_)
+                | TokenType::LeftParen
                 | TokenType::Bang
                 | TokenType::Minus => Statement::Expr(self.parse_expr()?),
 
