@@ -2,7 +2,7 @@ use crate::{
     interpreter::{GlobalAlloc, Interpretable},
     parse::ast::{Literal, Statement},
 };
-use air::Lowerable;
+use air::{GenerationState, Lowerable};
 use clap::{Parser, Subcommand};
 use error::LangError;
 use lex::Lexer;
@@ -106,13 +106,12 @@ fn build(file: PathBuf) {
         }
     };
 
+    let mut gen_state: GenerationState = GenerationState::new();
+
     for statement in ast {
-        match statement {
-            Statement::Expr(expr) => match expr.lower() {
-                Ok(air) => print!("{air}"),
-                Err(e) => eprintln!("{e:#?}"),
-            },
-            _ => todo!(),
+        match statement.lower(&mut gen_state) {
+            Ok(air) => print!("{air}"),
+            Err(e) => eprintln!("{e:#?}"),
         }
     }
 }

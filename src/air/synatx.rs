@@ -1,6 +1,4 @@
-use std::fmt::write;
-
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Reg(pub u32);
 
 impl std::ops::Deref for Reg {

@@ -1,40 +1,51 @@
+use std::collections::HashMap;
+
+use lazy_static::lazy_static;
+
 use self::synatx::{Block, Instruction, Reg};
 use crate::{
     error::LangError,
-    parse::ast::{Application, Expression, Literal, OperatorType, UnaryOperator},
+    parse::ast::{
+        Application, Assign, Expression, Literal, OperatorType, Statement, UnaryOperator,
+    },
 };
 
 mod synatx;
 
-static mut REGISTER_TRACKER: RegisterTracker = RegisterTracker::get_self();
-
-struct RegisterTracker {
-    next: Reg,
+// temp pub struct
+#[derive(Debug)]
+pub struct GenerationState {
+    next_reg: Reg,
+    variables: HashMap<String, Reg>,
 }
 
-impl RegisterTracker {
-    const fn get_self() -> Self {
-        Self { next: Reg(0) }
+impl GenerationState {
+    pub fn new() -> Self {
+        Self {
+            next_reg: Reg(0),
+            variables: HashMap::new(),
+        }
     }
 
-    fn get_next_register(&mut self) -> Reg {
-        let reg = self.next;
-        *self.next += 1;
+    fn next_register(&mut self) -> Reg {
+        let reg = self.next_reg;
+        (*self.next_reg) += 1;
         reg
     }
-}
 
-fn next_register() -> Reg {
-    unsafe { REGISTER_TRACKER.get_next_register() }
+    /// initialise a variable in the program. Returns the register it was allocated to
+    fn initialise_variable(&mut self, variable: String, register: Reg) {
+        self.variables.insert(variable, register);
+    }
 }
 
 pub trait Lowerable {
-    fn lower(&self) -> Result<Block, LangError>;
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError>;
 }
 
 impl Lowerable for Literal {
-    fn lower(&self) -> Result<Block, LangError> {
-        let reg = next_register();
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+        let reg = state.next_register();
         Ok(match self {
             Literal::Char { val, span } => {
                 Block::new(&[Instruction::CON(reg, *val as u32)], reg, *span)
@@ -51,52 +62,76 @@ impl Lowerable for Literal {
 }
 
 impl Lowerable for Application {
-    fn lower(&self) -> Result<Block, LangError> {
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         match self {
             Application::Unary { op, expr } => {
-                let mut block: Block = expr.lower()?;
+                let mut block: Block = expr.lower(state)?;
                 match op.ty() {
                     OperatorType::Not => {
-                        block.append(Instruction::NOT(next_register(), block.output_register));
+                        block.append(Instruction::NOT(
+                            state.next_register(),
+                            block.output_register,
+                        ));
                     }
                     OperatorType::Minus => {
                         let ry: Reg = block.output_register;
-                        let rx: Reg = next_register();
+                        let rx: Reg = state.next_register();
                         block.append(Instruction::CON(rx, 0));
-                        block.append(Instruction::SUB(next_register(), rx, ry));
+                        block.append(Instruction::SUB(state.next_register(), rx, ry));
                     }
                     _ => unreachable!(),
                 }
                 Ok(block)
             }
             Application::Binary { op, left, right } => {
-                let mut rx_block: Block = left.lower()?;
+                let mut rx_block: Block = left.lower(state)?;
                 let rx: Reg = rx_block.output_register;
-                let ry_block: Block = right.lower()?;
+                let ry_block: Block = right.lower(state)?;
                 let ry: Reg = ry_block.output_register;
                 rx_block.extend(ry_block);
 
                 rx_block.append(match op.ty() {
-                    OperatorType::Plus => Instruction::ADD(next_register(), rx, ry),
-                    OperatorType::Minus => Instruction::SUB(next_register(), rx, ry),
-                    OperatorType::Multiply => Instruction::MUL(next_register(), rx, ry),
-                    OperatorType::Divide => Instruction::DIV(next_register(), rx, ry),
+                    OperatorType::Plus => Instruction::ADD(state.next_register(), rx, ry),
+                    OperatorType::Minus => Instruction::SUB(state.next_register(), rx, ry),
+                    OperatorType::Multiply => Instruction::MUL(state.next_register(), rx, ry),
+                    OperatorType::Divide => Instruction::DIV(state.next_register(), rx, ry),
                     _ => todo!(),
                 });
                 Ok(rx_block)
             }
-            _ => todo!(),
         }
     }
 }
 
 impl Lowerable for Expression {
-    fn lower(&self) -> Result<Block, LangError> {
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         match self {
-            Expression::Literal { lit } => lit.lower(),
-            Expression::App { app } => app.lower(), // incomplete implementation
-            Expression::Group { expr, span: _ } => expr.lower(),
+            Expression::Literal { lit } => lit.lower(state),
+            Expression::App { app } => app.lower(state),
+            Expression::Group { expr, span: _ } => expr.lower(state),
             _ => todo!(),
         }
+    }
+}
+
+impl Lowerable for Statement {
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+        match self {
+            Statement::Expr(expr) => expr.lower(state),
+            Self::Assign(assign) => assign.lower(state),
+            _ => todo!(),
+        }
+    }
+}
+
+impl Lowerable for Assign {
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+        let block: Block = self.value.lower(state)?;
+        // implement some checking if the variable exists here. This might mean seperating initialising and mutation of variables
+
+        // this doesnt require any instruction,
+        state.initialise_variable(self.variable.clone(), block.output_register);
+
+        Ok(block)
     }
 }
