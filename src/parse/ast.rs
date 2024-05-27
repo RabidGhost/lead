@@ -53,7 +53,14 @@ pub struct BinaryOperator {
 }
 
 #[derive(Debug)]
-pub struct Assign {
+pub struct AssignMut {
+    pub variable: String,
+    pub value: Expression,
+    span: Span,
+}
+
+#[derive(Debug)]
+pub struct AssignLet {
     pub variable: String,
     pub value: Expression,
     span: Span,
@@ -75,7 +82,8 @@ pub struct While {
 
 #[derive(Debug)]
 pub enum Statement {
-    Assign(Assign),
+    AssignLet(AssignLet),
+    AssignMut(AssignMut),
     Expr(Expression),
     If(If),
     While(While),
@@ -223,7 +231,7 @@ impl BinaryOperator {
     }
 }
 
-impl Assign {
+impl AssignMut {
     pub fn from(variable: &Token, value: Expression) -> Self {
         let name = match variable.token_type() {
             crate::lex::token::TokenType::Identifier(name) => name.clone(),
@@ -233,7 +241,25 @@ impl Assign {
         let span = (variable.span().0, value.span().1);
 
         // this is maybe not totally correct, the span misses the `let`
-        Assign {
+        AssignMut {
+            variable: name,
+            value,
+            span,
+        }
+    }
+}
+
+impl AssignLet {
+    pub fn from(variable: &Token, value: Expression) -> Self {
+        let name = match variable.token_type() {
+            crate::lex::token::TokenType::Identifier(name) => name.clone(),
+            _ => panic!("should not be here"),
+        };
+
+        let span = (variable.span().0, value.span().1);
+
+        // this is maybe not totally correct, the span misses the `let`
+        AssignLet {
             variable: name,
             value,
             span,

@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-use lazy_static::lazy_static;
-
 use self::synatx::{Block, Instruction, Reg};
 use crate::{
     error::LangError,
     parse::ast::{
-        Application, Assign, Expression, Literal, OperatorType, Statement, UnaryOperator,
+        Application, AssignLet, AssignMut, Expression, Literal, OperatorType, Statement,
+        UnaryOperator,
     },
 };
 
@@ -118,13 +117,13 @@ impl Lowerable for Statement {
     fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         match self {
             Statement::Expr(expr) => expr.lower(state),
-            Self::Assign(assign) => assign.lower(state),
+            Self::AssignLet(assign) => assign.lower(state),
             _ => todo!(),
         }
     }
 }
 
-impl Lowerable for Assign {
+impl Lowerable for AssignLet {
     fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         let block: Block = self.value.lower(state)?;
         // implement some checking if the variable exists here. This might mean seperating initialising and mutation of variables

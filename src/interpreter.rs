@@ -76,7 +76,14 @@ impl Interpretable for Statement {
     fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError> {
         match self {
             Statement::Expr(expr) => expr.eval(alloc),
-            Self::Assign(assign) => {
+            Statement::AssignLet(assign) => {
+                // this may not be correct
+                let expr = assign.value.eval(alloc)?;
+                alloc.allocate(assign.variable.clone(), expr);
+                Ok(Literal::Unit)
+            }
+            Statement::AssignMut(assign) => {
+                // this may not be correct
                 let expr = assign.value.eval(alloc)?;
                 alloc.allocate(assign.variable.clone(), expr);
                 Ok(Literal::Unit)
