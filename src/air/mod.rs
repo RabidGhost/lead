@@ -4,8 +4,7 @@ use self::synatx::{Block, Instruction, Reg};
 use crate::{
     error::LangError,
     parse::ast::{
-        Application, AssignLet, AssignMut, Expression, Literal, OperatorType, Statement,
-        UnaryOperator,
+        Application, Expression, Let, Literal, Mutate, OperatorType, Statement, UnaryOperator,
     },
 };
 
@@ -35,6 +34,11 @@ impl GenerationState {
     /// initialise a variable in the program. Returns the register it was allocated to
     fn initialise_variable(&mut self, variable: String, register: Reg) {
         self.variables.insert(variable, register);
+    }
+
+    /// checks if a variable is already initialised
+    fn variable_exists(&mut self, variable: String) -> bool {
+        self.variables.contains_key(&variable)
     }
 }
 
@@ -117,16 +121,15 @@ impl Lowerable for Statement {
     fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         match self {
             Statement::Expr(expr) => expr.lower(state),
-            Self::AssignLet(assign) => assign.lower(state),
+            Statement::Let(assign) => assign.lower(state),
             _ => todo!(),
         }
     }
 }
 
-impl Lowerable for AssignLet {
+impl Lowerable for Let {
     fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         let block: Block = self.value.lower(state)?;
-        // implement some checking if the variable exists here. This might mean seperating initialising and mutation of variables
 
         // this doesnt require any instruction,
         state.initialise_variable(self.variable.clone(), block.output_register);

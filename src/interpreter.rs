@@ -11,12 +11,17 @@ pub struct GlobalAlloc {
 
 trait LangAlloc {
     fn allocate(&mut self, name: String, var: Literal);
+    fn is_allocated(&mut self, name: &String) -> bool;
     fn fetch(&self, name: &String) -> Option<Literal>;
 }
 
 impl LangAlloc for GlobalAlloc {
     fn allocate(&mut self, name: String, var: Literal) {
         self.variables.insert(name, var);
+    }
+
+    fn is_allocated(&mut self, name: &String) -> bool {
+        self.variables.contains_key(name)
     }
 
     fn fetch(&self, name: &String) -> Option<Literal> {
@@ -76,17 +81,21 @@ impl Interpretable for Statement {
     fn eval(&self, alloc: &mut impl LangAlloc) -> Result<Literal, LangError> {
         match self {
             Statement::Expr(expr) => expr.eval(alloc),
-            Statement::AssignLet(assign) => {
-                // this may not be correct
+            Statement::Let(assign) => {
                 let expr = assign.value.eval(alloc)?;
                 alloc.allocate(assign.variable.clone(), expr);
                 Ok(Literal::Unit)
             }
-            Statement::AssignMut(assign) => {
+            Statement::Mutate(assign) => {
+                if alloc.is_allocated(&assign.variable) {
+                    let expr = assign.value.eval(alloc)?;
+                    alloc.allocate(assign.variable.clone(), expr);
+                    Ok(Literal::Unit)
+                } else {
+                    todo!("lang error here")
+                }
+
                 // this may not be correct
-                let expr = assign.value.eval(alloc)?;
-                alloc.allocate(assign.variable.clone(), expr);
-                Ok(Literal::Unit)
             }
             Statement::If(iff) => {
                 let cond: bool = iff.condition.eval(alloc)?.try_into()?;

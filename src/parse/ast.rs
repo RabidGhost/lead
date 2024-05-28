@@ -53,14 +53,14 @@ pub struct BinaryOperator {
 }
 
 #[derive(Debug)]
-pub struct AssignMut {
+pub struct Mutate {
     pub variable: String,
     pub value: Expression,
     span: Span,
 }
 
 #[derive(Debug)]
-pub struct AssignLet {
+pub struct Let {
     pub variable: String,
     pub value: Expression,
     span: Span,
@@ -82,8 +82,8 @@ pub struct While {
 
 #[derive(Debug)]
 pub enum Statement {
-    AssignLet(AssignLet),
-    AssignMut(AssignMut),
+    Let(Let),
+    Mutate(Mutate),
     Expr(Expression),
     If(If),
     While(While),
@@ -231,7 +231,7 @@ impl BinaryOperator {
     }
 }
 
-impl AssignMut {
+impl Mutate {
     pub fn from(variable: &Token, value: Expression) -> Self {
         let name = match variable.token_type() {
             crate::lex::token::TokenType::Identifier(name) => name.clone(),
@@ -240,8 +240,7 @@ impl AssignMut {
 
         let span = (variable.span().0, value.span().1);
 
-        // this is maybe not totally correct, the span misses the `let`
-        AssignMut {
+        Mutate {
             variable: name,
             value,
             span,
@@ -249,17 +248,17 @@ impl AssignMut {
     }
 }
 
-impl AssignLet {
-    pub fn from(variable: &Token, value: Expression) -> Self {
+impl Let {
+    pub fn from(variable: &Token, value: Expression, start: usize) -> Self {
+        // this function includes a start of the span, as we dont know where the `let` was
         let name = match variable.token_type() {
             crate::lex::token::TokenType::Identifier(name) => name.clone(),
             _ => panic!("should not be here"),
         };
 
-        let span = (variable.span().0, value.span().1);
+        let span = (start, value.span().1);
 
-        // this is maybe not totally correct, the span misses the `let`
-        AssignLet {
+        Let {
             variable: name,
             value,
             span,

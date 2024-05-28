@@ -4,12 +4,11 @@ use crate::{
         ERROR_UNEXPECTED_END_OF_FILE, ERROR_UNMATCHED_DELIMITER,
     },
     lex::token::{Token, TokenType},
-    parse::ast::{AssignLet, AssignMut},
 };
 
 use self::ast::{
-    Application, BinaryOperator, Expression, If, Literal, OperatorType, Statement, UnaryOperator,
-    While,
+    Application, BinaryOperator, Expression, If, Let, Literal, Mutate, OperatorType, Statement,
+    UnaryOperator, While,
 };
 use self::ops::*;
 
@@ -125,7 +124,7 @@ impl<'i> LangParser<'i> {
                 TokenType::Identifier(_) => {
                     //self.advance_one();
                     match self.peek_nth(2)?.token_type() {
-                        TokenType::Assign => Statement::Assign(self.parse_let()?),
+                        TokenType::Assign => Statement::Mutate(self.parse_mutate()?),
                         _ => Statement::Expr(self.parse_expr()?),
                     }
                 }
@@ -138,7 +137,7 @@ impl<'i> LangParser<'i> {
                 | TokenType::Minus => Statement::Expr(self.parse_expr()?),
 
                 // keywords
-                TokenType::Let => Statement::Assign(self.parse_let()?),
+                TokenType::Let => Statement::Let(self.parse_let()?),
                 TokenType::While | TokenType::If => self.parse_wif()?,
 
                 _ => todo!(),
@@ -170,7 +169,8 @@ impl<'i> LangParser<'i> {
         })
     }
 
-    pub fn parse_let(&mut self) -> Result<Assign, LangError> {
+    pub fn parse_let(&mut self) -> Result<Let, LangError> {
+        let start = self.index;
         self.consume(TokenType::Let)?;
         let variable = self.advance_one().ok_or(LangError::from(
             "expected identifier".to_owned(),
@@ -179,7 +179,20 @@ impl<'i> LangParser<'i> {
         ))?;
         self.consume(TokenType::Assign)?;
         let value = self.parse_expr()?;
-        let assign = Assign::from(variable, value);
+        let assign = Let::from(variable, value, start);
+        self.consume(TokenType::Semicolon)?;
+        Ok(assign)
+    }
+
+    pub fn parse_mutate(&mut self) -> Result<Mutate, LangError> {
+        let variable = self.advance_one().ok_or(LangError::from(
+            "expected identifier".to_owned(),
+            (self.index - 1, self.index),
+            ERROR_UNEXPECTED_END_OF_FILE,
+        ))?;
+        self.consume(TokenType::Assign)?;
+        let value = self.parse_expr()?;
+        let assign = Mutate::from(variable, value);
         self.consume(TokenType::Semicolon)?;
         Ok(assign)
     }
