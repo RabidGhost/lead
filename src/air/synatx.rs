@@ -20,11 +20,38 @@ impl std::fmt::Display for Reg {
     }
 }
 
+trait Segment {
+    fn flatten(&self) -> &Vec<Instruction>;
+}
+
 pub struct Block {
     instructions: Vec<Instruction>,
     pub output_register: Reg,
     pub span: (usize, usize),
 }
+
+impl Segment for Block {
+    fn flatten(&self) -> &Vec<Instruction> {
+        self.instructions.as_ref()
+    }
+}
+
+pub struct SubProgram {
+    blocks: Vec<Block>,
+    pub output_register: Reg,
+    pub span: (usize, usize),
+}
+
+// impl Segment for SubProgram {
+//     fn flatten(&self) -> &Vec<Instruction> {
+//         &self
+//             .blocks
+//             .into_iter()
+//             .flat_map(|block| block.flatten())
+//             .map(|x| x.to_owned())
+//             .collect()
+//     }
+// }
 
 impl Block {
     pub fn new(instructions: &[Instruction], output_register: Reg, span: (usize, usize)) -> Self {
