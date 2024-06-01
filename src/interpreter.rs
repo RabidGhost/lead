@@ -9,7 +9,7 @@ pub struct GlobalAlloc {
     variables: HashMap<String, Literal>,
 }
 
-trait LangAlloc {
+pub trait LangAlloc {
     fn allocate(&mut self, name: String, var: Literal);
     fn is_allocated(&mut self, name: &String) -> bool;
     fn fetch(&self, name: &String) -> Option<Literal>;

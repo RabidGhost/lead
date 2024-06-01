@@ -153,6 +153,12 @@ impl Spans for BinaryOperator {
     }
 }
 
+impl Spans for Mutate {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
 // impl ast
 
 impl Literal {
@@ -284,6 +290,13 @@ impl While {
             span,
         }
     }
+}
+
+// identifier trait
+
+pub trait Identifier {
+    fn name(&self) -> &str;
+    fn span(&self) -> &str;
 }
 
 // impl display for ast

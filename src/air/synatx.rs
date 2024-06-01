@@ -54,6 +54,8 @@ pub enum Instruction {
 
     /// introduce a constant
     CON(Reg, u32),
+    /// move a value from one register to another
+    MOV(Reg, Reg),
 
     NOT(Reg, Reg),
 
@@ -99,6 +101,7 @@ impl std::fmt::Display for Instruction {
             Instruction::CMP(rx, ry) => writeln!(f, "CMP {rx}, {ry}"),
 
             Instruction::CON(rd, constant) => writeln!(f, "CONST {rd}, ={constant:#x}"),
+            Instruction::MOV(rd, rx) => writeln!(f, "MOV {rd}, {rx}"),
 
             Instruction::LBL(label) => writeln!(f, "{label}:"),
             Instruction::BRA(label) => writeln!(f, "BRA {label}"),

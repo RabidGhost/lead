@@ -1,10 +1,3 @@
-// pub trait LangError: std::fmt::Debug {
-//     fn report(&self);
-// }
-
-// pub mod lex_error {
-//     use super::*;
-
 pub const ERROR_INVALID_LEXEME: u32 = 1;
 pub const ERROR_INVALID_CHARACTER_LITERAL: u32 = 2;
 pub const ERROR_INVALID_NUMBER_LITERAL: u32 = 3;
@@ -18,6 +11,7 @@ pub const ERROR_UNMATCHED_DELIMITER: u32 = 10;
 pub const ERROR_UNEXPECTED_END_OF_FILE: u32 = 11;
 pub const ERROR_UNKNOWN_VARIABLE: u32 = 12;
 pub const ERROR_EXPECTED: u32 = 13;
+pub const ERROR_UNINITIALISED_VARIABLE: u32 = 14;
 
 #[derive(Clone)]
 pub struct LangError {

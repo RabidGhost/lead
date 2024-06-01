@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use self::synatx::{Block, Instruction, Reg};
 use crate::{
-    error::LangError,
+    error::{LangError, ERROR_UNINITIALISED_VARIABLE},
     parse::ast::{
-        Application, Expression, Let, Literal, Mutate, OperatorType, Statement, UnaryOperator,
+        Application, Expression, Let, Literal, Mutate, OperatorType, Spans, Statement,
+        UnaryOperator,
     },
 };
 
@@ -39,6 +40,21 @@ impl GenerationState {
     /// checks if a variable is already initialised
     fn variable_exists(&mut self, variable: String) -> bool {
         self.variables.contains_key(&variable)
+    }
+
+    fn variable_register(
+        &mut self,
+        variable: &String,
+        span: (usize, usize),
+    ) -> Result<&Reg, LangError> {
+        match self.variables.get(variable) {
+            Some(reg) => Ok(reg),
+            None => Err(LangError::from(
+                format!("uninitialised variable `{}`", variable),
+                span,
+                ERROR_UNINITIALISED_VARIABLE,
+            )),
+        }
     }
 }
 
@@ -112,7 +128,11 @@ impl Lowerable for Expression {
             Expression::Literal { lit } => lit.lower(state),
             Expression::App { app } => app.lower(state),
             Expression::Group { expr, span: _ } => expr.lower(state),
-            _ => todo!(),
+            Expression::Identifier { id, span } => {
+                // set the output register to be the variable register, and give back a block with no instructions
+                let variable_register = state.variable_register(&id, self.span())?;
+                Ok(Block::new(&vec![], variable_register.to_owned(), *span))
+            }
         }
     }
 }
@@ -121,7 +141,8 @@ impl Lowerable for Statement {
     fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
         match self {
             Statement::Expr(expr) => expr.lower(state),
-            Statement::Let(assign) => assign.lower(state),
+            Statement::Let(r#let) => r#let.lower(state),
+            Statement::Mutate(mutate) => mutate.lower(state),
             _ => todo!(),
         }
     }
@@ -134,6 +155,19 @@ impl Lowerable for Let {
         // this doesnt require any instruction,
         state.initialise_variable(self.variable.clone(), block.output_register);
 
+        Ok(block)
+    }
+}
+
+impl Lowerable for Mutate {
+    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+        let mut block: Block = self.value.lower(state)?;
+
+        let variable_register = state.variable_register(&self.variable, self.span())?;
+        block.append(Instruction::MOV(
+            variable_register.to_owned(),
+            block.output_register,
+        ));
         Ok(block)
     }
 }
