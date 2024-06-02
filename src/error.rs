@@ -12,6 +12,7 @@ pub const ERROR_UNEXPECTED_END_OF_FILE: u32 = 11;
 pub const ERROR_UNKNOWN_VARIABLE: u32 = 12;
 pub const ERROR_EXPECTED: u32 = 13;
 pub const ERROR_UNINITIALISED_VARIABLE: u32 = 14;
+pub const ERROR_NULL_VARIABLE_EXPRESSION: u32 = 15;
 
 #[derive(Clone)]
 pub struct LangError {

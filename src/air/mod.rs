@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
-use self::synatx::{Block, Instruction, Reg};
+use self::syntax::{Block, Instruction, Reg};
 use crate::{
-    error::{LangError, ERROR_UNINITIALISED_VARIABLE},
+    error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
     parse::ast::{
         Application, Expression, Let, Literal, Mutate, OperatorType, Spans, Statement,
         UnaryOperator,
     },
 };
+use segment::Segment;
 
-mod synatx;
+mod segment;
+mod syntax;
 
 // temp pub struct
 #[derive(Debug)]
@@ -59,21 +61,21 @@ impl GenerationState {
 }
 
 pub trait Lowerable {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError>;
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError>;
 }
 
 impl Lowerable for Literal {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
         let reg = state.next_register();
         Ok(match self {
             Literal::Char { val, span } => {
-                Block::new(&[Instruction::CON(reg, *val as u32)], reg, *span)
+                Segment::block_from_inst(Instruction::CON(reg, *val as u32), *span)
             }
             Literal::Number { val, span } => {
-                Block::new(&[Instruction::CON(reg, *val as u32)], reg, *span)
+                Segment::block_from_inst(Instruction::CON(reg, *val as u32), *span)
             }
             Literal::Boolean { val, span } => {
-                Block::new(&[Instruction::CON(reg, *val as u32)], reg, *span)
+                Segment::block_from_inst(Instruction::CON(reg, *val as u32), *span)
             }
             Literal::Unit => todo!("implement unit literal"),
         })
@@ -81,41 +83,53 @@ impl Lowerable for Literal {
 }
 
 impl Lowerable for Application {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
         match self {
             Application::Unary { op, expr } => {
-                let mut block: Block = expr.lower(state)?;
+                let mut block: Segment = expr.lower(state)?;
+                let block_output_register = block
+                    .output_register()
+                    .expect("expected expr to have Some() output register");
                 match op.ty() {
                     OperatorType::Not => {
-                        block.append(Instruction::NOT(
-                            state.next_register(),
-                            block.output_register,
-                        ));
+                        block.append_inst(
+                            Instruction::NOT(state.next_register(), block_output_register),
+                            self.span(),
+                        );
                     }
                     OperatorType::Minus => {
-                        let ry: Reg = block.output_register;
                         let rx: Reg = state.next_register();
-                        block.append(Instruction::CON(rx, 0));
-                        block.append(Instruction::SUB(state.next_register(), rx, ry));
+                        block.append_inst(Instruction::CON(rx, 0), self.span());
+                        block.append_inst(
+                            Instruction::SUB(state.next_register(), rx, block_output_register),
+                            self.span(),
+                        );
                     }
                     _ => unreachable!(),
                 }
                 Ok(block)
             }
             Application::Binary { op, left, right } => {
-                let mut rx_block: Block = left.lower(state)?;
-                let rx: Reg = rx_block.output_register;
-                let ry_block: Block = right.lower(state)?;
-                let ry: Reg = ry_block.output_register;
+                let mut rx_block: Segment = left.lower(state)?;
+                let rx: Reg = rx_block
+                    .output_register()
+                    .expect("expected expr to have Some() output register");
+                let ry_block: Segment = right.lower(state)?;
+                let ry: Reg = ry_block
+                    .output_register()
+                    .expect("expected expr to have Some() output register");
                 rx_block.extend(ry_block);
 
-                rx_block.append(match op.ty() {
-                    OperatorType::Plus => Instruction::ADD(state.next_register(), rx, ry),
-                    OperatorType::Minus => Instruction::SUB(state.next_register(), rx, ry),
-                    OperatorType::Multiply => Instruction::MUL(state.next_register(), rx, ry),
-                    OperatorType::Divide => Instruction::DIV(state.next_register(), rx, ry),
-                    _ => todo!(),
-                });
+                rx_block.append_inst(
+                    match op.ty() {
+                        OperatorType::Plus => Instruction::ADD(state.next_register(), rx, ry),
+                        OperatorType::Minus => Instruction::SUB(state.next_register(), rx, ry),
+                        OperatorType::Multiply => Instruction::MUL(state.next_register(), rx, ry),
+                        OperatorType::Divide => Instruction::DIV(state.next_register(), rx, ry),
+                        _ => todo!(),
+                    },
+                    self.span(),
+                );
                 Ok(rx_block)
             }
         }
@@ -123,7 +137,7 @@ impl Lowerable for Application {
 }
 
 impl Lowerable for Expression {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
         match self {
             Expression::Literal { lit } => lit.lower(state),
             Expression::App { app } => app.lower(state),
@@ -131,43 +145,68 @@ impl Lowerable for Expression {
             Expression::Identifier { id, span } => {
                 // set the output register to be the variable register, and give back a block with no instructions
                 let variable_register = state.variable_register(&id, self.span())?;
-                Ok(Block::new(&vec![], variable_register.to_owned(), *span))
+                let mut block = Segment::empty_block();
+                block.set_span(*span);
+                block.set_output_register(variable_register.to_owned());
+                Ok(block)
             }
         }
     }
 }
 
 impl Lowerable for Statement {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
         match self {
             Statement::Expr(expr) => expr.lower(state),
             Statement::Let(r#let) => r#let.lower(state),
             Statement::Mutate(mutate) => mutate.lower(state),
+            // Statement::If(r#if) => r#if.lower(),
             _ => todo!(),
         }
     }
 }
 
 impl Lowerable for Let {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
-        let block: Block = self.value.lower(state)?;
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
+        let block: Segment = self.value.lower(state)?;
 
-        // this doesnt require any instruction,
-        state.initialise_variable(self.variable.clone(), block.output_register);
-
+        match block.output_register() {
+            // this doesn't require an instruction
+            Some(reg) => state.initialise_variable(self.variable.clone(), reg),
+            None => {
+                return Err(LangError::from(
+                    "let statement expression evaluates to nothing".to_owned(),
+                    self.value.span(),
+                    ERROR_NULL_VARIABLE_EXPRESSION,
+                ))
+            }
+        }
         Ok(block)
     }
 }
 
 impl Lowerable for Mutate {
-    fn lower(&self, state: &mut GenerationState) -> Result<Block, LangError> {
-        let mut block: Block = self.value.lower(state)?;
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
+        let mut block: Segment = self.value.lower(state)?;
 
         let variable_register = state.variable_register(&self.variable, self.span())?;
-        block.append(Instruction::MOV(
-            variable_register.to_owned(),
-            block.output_register,
-        ));
+
+        match block.output_register() {
+            Some(reg) => {
+                block.append_inst(
+                    Instruction::MOV(variable_register.to_owned(), reg),
+                    self.span(),
+                );
+            }
+            None => {
+                return Err(LangError::from(
+                    "let statement expression evaluates to nothing".to_owned(),
+                    self.value.span(),
+                    ERROR_NULL_VARIABLE_EXPRESSION,
+                ))
+            }
+        }
+
         Ok(block)
     }
 }

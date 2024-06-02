@@ -27,6 +27,7 @@ trait Segment {
 pub struct Block {
     instructions: Vec<Instruction>,
     pub output_register: Reg,
+    pub flag_set: Option<Flag>,
     pub span: (usize, usize),
 }
 
@@ -39,6 +40,7 @@ impl Segment for Block {
 pub struct SubProgram {
     blocks: Vec<Block>,
     pub output_register: Reg,
+    pub flag_set: Option<Flag>,
     pub span: (usize, usize),
 }
 
@@ -58,6 +60,7 @@ impl Block {
         Self {
             instructions: instructions.to_vec(),
             output_register,
+            flag_set: None,
             span,
         }
     }
@@ -69,6 +72,10 @@ impl Block {
             Some(reg) => self.output_register = reg,
         }
         self.instructions.push(instruction);
+    }
+
+    pub fn set_flag(&mut self, flag: Flag) {
+        self.flag_set = Some(flag);
     }
 }
 
@@ -94,7 +101,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    fn output_register(&self) -> Option<Reg> {
+    pub fn output_register(&self) -> Option<Reg> {
         Some(match self {
             Self::ADD(r, _, _) => *r,
             Self::SUB(r, _, _) => *r,
