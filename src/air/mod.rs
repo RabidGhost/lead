@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 use uuid::Uuid;
 
 use self::syntax::{Flag, Instruction, Reg};
 use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
     parse::ast::{
-        Application, Expression, If, Let, Literal, Mutate, OperatorType, Spans, Statement,
+        Application, Expression, If, Let, Literal, Mutate, OperatorType, Spans, Statement, While,
     },
 };
 use segment::Segment;
@@ -169,6 +169,7 @@ impl Lowerable for Statement {
             Statement::Let(r#let) => r#let.lower(state),
             Statement::Mutate(mutate) => mutate.lower(state),
             Statement::If(r#if) => r#if.lower(state),
+            Statement::While(r#while) => r#while.lower(state),
             _ => todo!(),
         }
     }
@@ -206,6 +207,50 @@ impl Lowerable for If {
         if_segment.append_segment(sub_program_if);
 
         Ok(if_segment)
+    }
+}
+
+impl Lowerable for While {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
+        let label_uuid = Uuid::new_v4().as_hyphenated().to_string();
+        let check_condition_label = format!("{}-check-condition", label_uuid.clone());
+        let mut check_condition_block: Segment = Segment::block_from_inst(
+            Instruction::LBL(check_condition_label.clone()),
+            self.condition.span(),
+        );
+
+        check_condition_block.extend(self.condition.lower(state)?);
+
+        let loop_label = format!("{}-loop", label_uuid.clone());
+        let break_label = format!("{}-break", label_uuid);
+
+        check_condition_block.append_inst(
+            Instruction::CHK(match check_condition_block.latest_flag_hint() {
+                Some(flag) => flag,
+                None => Flag::Nv,
+            }),
+            self.condition.span(),
+        );
+        check_condition_block.append_inst(Instruction::BRA(loop_label), self.condition.span());
+        check_condition_block
+            .append_inst(Instruction::BRA(break_label.clone()), self.condition.span());
+
+        let mut while_loop: Segment = Segment::subprogram_from_segment(check_condition_block);
+
+        for statement in self.body.iter() {
+            while_loop.append_segment(statement.lower(state)?);
+        }
+
+        // add a jump back to the condition check
+        while_loop.append_inst_as_block(
+            Instruction::BRA(check_condition_label),
+            self.condition.span(),
+        );
+
+        // finally add the break label
+        while_loop.append_inst_as_block(Instruction::LBL(break_label), self.condition.span());
+
+        Ok(while_loop)
     }
 }
 

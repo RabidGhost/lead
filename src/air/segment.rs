@@ -53,6 +53,11 @@ impl Segment {
         }
     }
 
+    pub fn append_inst_as_block(&mut self, instruction: Instruction, inst_span: (usize, usize)) {
+        let segment = Segment::block_from_inst(instruction, inst_span);
+        self.append_segment(segment);
+    }
+
     /// Append a segment to the end of the subprogram. If called on a block, the block will be wrapped in a subprogram, and the segment appended to the subprogram. This currently requires cloning the block.
     pub fn append_segment(&mut self, segment: Segment) {
         match self {
