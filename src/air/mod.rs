@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use self::syntax::{Block, Instruction, Reg};
+use self::syntax::{Flag, Instruction, Reg};
 use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
     parse::ast::{
-        Application, Expression, Let, Literal, Mutate, OperatorType, Spans, Statement,
+        Application, Expression, If, Let, Literal, Mutate, OperatorType, Spans, Statement,
         UnaryOperator,
     },
 };
@@ -118,7 +118,9 @@ impl Lowerable for Application {
                 let ry: Reg = ry_block
                     .output_register()
                     .expect("expected expr to have Some() output register");
+                let new_span = (rx_block.span_unchecked().0, ry_block.span_unchecked().1);
                 rx_block.extend(ry_block);
+                rx_block.set_span(new_span);
 
                 rx_block.append_inst(
                     match op.ty() {
@@ -126,7 +128,13 @@ impl Lowerable for Application {
                         OperatorType::Minus => Instruction::SUB(state.next_register(), rx, ry),
                         OperatorType::Multiply => Instruction::MUL(state.next_register(), rx, ry),
                         OperatorType::Divide => Instruction::DIV(state.next_register(), rx, ry),
-                        _ => todo!(),
+                        OperatorType::LessThan => Instruction::CMP(rx, ry, Some(Flag::Lt)),
+                        OperatorType::LessThanEq => Instruction::CMP(rx, ry, Some(Flag::Le)),
+                        OperatorType::GreaterThan => Instruction::CMP(rx, ry, Some(Flag::Gt)),
+                        OperatorType::GreaterThanEq => Instruction::CMP(rx, ry, Some(Flag::Ge)),
+                        OperatorType::NotEqual => Instruction::CMP(rx, ry, Some(Flag::Ne)),
+                        OperatorType::Equal => Instruction::CMP(rx, ry, Some(Flag::Eq)),
+                        _ => unreachable!("OperatorType::Not is a unary operator "),
                     },
                     self.span(),
                 );
@@ -160,9 +168,44 @@ impl Lowerable for Statement {
             Statement::Expr(expr) => expr.lower(state),
             Statement::Let(r#let) => r#let.lower(state),
             Statement::Mutate(mutate) => mutate.lower(state),
-            // Statement::If(r#if) => r#if.lower(),
+            Statement::If(r#if) => r#if.lower(state),
             _ => todo!(),
         }
+    }
+}
+
+impl Lowerable for If {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
+        let condition: Segment = self.condition.lower(state)?;
+        // the condition should contain an AST `CMP` instruction, which will contain a flag hint.
+        let mut if_segment = Segment::subprogram_from_segment(condition);
+        // we check the latest flag hint, and if it exists, generate a `CHK` instruction for it
+        // if no flag hint exists, then the we generate a `CHK Nv` (check never) instruction
+        if_segment.append_inst(
+            Instruction::CHK(match if_segment.latest_flag_hint() {
+                Some(flag) => flag,
+                None => Flag::Nv,
+            }),
+            self.condition.span(),
+        );
+
+        let if_label = String::from("if");
+
+        // better labels for if statements will be needed
+        let branch_if: Segment =
+            Segment::block_from_inst(Instruction::BRA(if_label.clone()), self.span());
+
+        let mut sub_program_if: Segment =
+            Segment::subprogram_from_inst(Instruction::LBL(if_label), self.span());
+
+        for statement in self.iff.iter() {
+            sub_program_if.append_segment(statement.lower(state)?);
+        }
+
+        if_segment.append_segment(branch_if);
+        if_segment.append_segment(sub_program_if);
+
+        Ok(if_segment)
     }
 }
 

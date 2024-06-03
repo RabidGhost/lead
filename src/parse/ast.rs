@@ -159,6 +159,12 @@ impl Spans for Mutate {
     }
 }
 
+impl Spans for If {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
 // impl ast
 
 impl Literal {

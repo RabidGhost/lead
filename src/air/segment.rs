@@ -1,6 +1,8 @@
 use super::syntax::{Flag, Instruction, Reg};
+use std::iter;
 
 /// A segment of the program, represented by AIR instructions
+#[derive(Clone)]
 pub enum Segment {
     SubProgram {
         segments: Vec<Box<Self>>,
@@ -52,6 +54,23 @@ impl Segment {
         }
     }
 
+    /// Append a segment to the end of the subprogram. If called on a block, the block will be wrapped in a subprogram, and the segment appended to the subprogram. This currently requires cloning the block.
+    pub fn append_segment(&mut self, segment: Segment) {
+        match self {
+            Self::SubProgram {
+                segments,
+                ref mut output_register,
+            } => {
+                *output_register = segment.output_register().or(*output_register);
+                segments.push(Box::new(segment));
+            }
+            _ => {
+                *self = Segment::subprogram_from_segment(self.clone());
+                self.append_segment(segment)
+            }
+        }
+    }
+
     pub fn block_from_inst(instruction: Instruction, span: (usize, usize)) -> Self {
         let output_register = instruction.output_register();
         Self::Block {
@@ -65,6 +84,14 @@ impl Segment {
         let output_register = instruction.output_register();
         Self::SubProgram {
             segments: vec![Box::new(Segment::block_from_inst(instruction, span))],
+            output_register,
+        }
+    }
+
+    pub fn subprogram_from_segment(segment: Segment) -> Self {
+        let output_register = segment.output_register();
+        Self::SubProgram {
+            segments: vec![Box::new(segment)],
             output_register,
         }
     }
@@ -91,7 +118,7 @@ impl Segment {
         }
     }
 
-    /// Set the span of the segment. `SubProgram`s do not keep track of their span, so this will only effect `Block`s
+    /// Set the span of the segment. `SubProgram`s do not keep track of their span, so this only effects `Block`s
     pub fn set_span(&mut self, new_span: (usize, usize)) {
         match self {
             Segment::Block {
@@ -114,6 +141,70 @@ impl Segment {
                 segments: _,
                 ref mut output_register,
             } => *output_register = Some(reg),
+        }
+    }
+
+    pub fn span(&self) -> Option<(usize, usize)> {
+        match self {
+            Segment::Block {
+                instructions: _,
+                output_register: _,
+                span,
+            } => Some(*span),
+            Segment::SubProgram {
+                segments: _,
+                output_register: _,
+            } => None,
+        }
+    }
+
+    /// Get the span of a `Block`, panics if self is `SubProgram`
+    pub fn span_unchecked(&self) -> (usize, usize) {
+        match self {
+            Self::Block {
+                instructions: _,
+                output_register: _,
+                span,
+            } => *span,
+            _ => panic!("unchecked span on SubProgram"),
+        }
+    }
+
+    /// Returns the most recent flag hint if one exists, otherwise `None`
+    pub fn latest_flag_hint(&self) -> Option<Flag> {
+        // this is a suboptimal implementation
+        let mut instructions = self.flatten();
+        instructions.reverse();
+        for inst in instructions {
+            match inst {
+                Instruction::CMP(_, _, Some(flag_hint)) => return Some(*flag_hint),
+                _ => continue,
+            }
+        }
+        None
+    }
+
+    /// Flatten the entire segment structure, returning a vector of refs to program instructions.
+    pub fn flatten(&self) -> Vec<&Instruction> {
+        match self {
+            Self::Block {
+                instructions,
+                output_register: _,
+                span: _,
+            } => {
+                let mut v = Vec::new();
+                v.extend(instructions);
+                v
+            }
+            Self::SubProgram {
+                segments,
+                output_register: _,
+            } => {
+                return segments
+                    .iter()
+                    .flat_map(|segment| segment.flatten())
+                    .collect()
+            }
         }
     }
 }
@@ -194,10 +285,13 @@ impl std::fmt::Display for Segment {
                 Ok(())
             }
             Segment::SubProgram {
-                segments: _,
+                segments,
                 output_register: _,
             } => {
-                todo!("implement display for subprograms")
+                for segment in segments {
+                    write!(f, "{}", *segment)?
+                }
+                Ok(())
                 // likely just iterate over the blocks and print with display
             }
         }

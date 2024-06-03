@@ -86,14 +86,14 @@ pub enum Instruction {
     MUL(Reg, Reg, Reg),
     DIV(Reg, Reg, Reg),
 
-    /// introduce a constant
+    /// Introduce a constant
     CON(Reg, u32),
-    /// move a value from one register to another
+    /// Move a value from one register to another
     MOV(Reg, Reg),
 
     NOT(Reg, Reg),
-
-    CMP(Reg, Reg),
+    /// Compare two registers, and set flags. Contains an optional info flag, designating what flag was intended to be set.
+    CMP(Reg, Reg, Option<Flag>),
     CHK(Flag),
 
     LBL(String),
@@ -116,12 +116,22 @@ impl Instruction {
 
 #[derive(Copy, Clone)]
 pub enum Flag {
+    /// Equal
     Eq,
+    /// Not equal
     Ne,
+    /// Less than
     Lt,
+    /// Less than or equal to
     Le,
+    /// Greater than
     Gt,
+    /// Greater than or equal to
     Ge,
+    /// Never
+    Nv,
+    /// Always
+    Al,
 }
 
 impl std::fmt::Display for Instruction {
@@ -132,7 +142,7 @@ impl std::fmt::Display for Instruction {
             Instruction::MUL(rd, rx, ry) => writeln!(f, "MUL {rd}, {rx}, {ry}"),
             Instruction::DIV(rd, rx, ry) => writeln!(f, "DIV {rd}, {rx}, {ry}"),
             Instruction::NOT(rd, rx) => writeln!(f, "NOT {rd}, {rx}"),
-            Instruction::CMP(rx, ry) => writeln!(f, "CMP {rx}, {ry}"),
+            Instruction::CMP(rx, ry, _) => writeln!(f, "CMP {rx}, {ry}"),
 
             Instruction::CON(rd, constant) => writeln!(f, "CONST {rd}, ={constant:#x}"),
             Instruction::MOV(rd, rx) => writeln!(f, "MOV {rd}, {rx}"),
@@ -140,8 +150,27 @@ impl std::fmt::Display for Instruction {
             Instruction::LBL(label) => writeln!(f, "{label}:"),
             Instruction::BRA(label) => writeln!(f, "BRA {label}"),
 
-            Instruction::CHK(_) => todo!(),
+            Instruction::CHK(flag) => writeln!(f, "CHK {flag}",),
         }
+    }
+}
+
+impl std::fmt::Display for Flag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Flag::Al => "1",
+                Flag::Nv => "0",
+                Flag::Eq => "==",
+                Flag::Ne => "!=",
+                Flag::Gt => ">",
+                Flag::Ge => ">=",
+                Flag::Lt => "<",
+                Flag::Le => "<=",
+            }
+        )
     }
 }
 
