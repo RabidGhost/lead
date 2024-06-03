@@ -10,3 +10,8 @@ TSPL = "0.0.12"
 clap = { version = "4.5.4", features = ["derive"] }
 miette = { version = "7.2.0", features = ["fancy"] }
 thiserror = "1.0.61"
+[dependencies.uuid]
+version = "1.8.0"
+features = [
+    "v4", # Lets you generate random UUIDs
+]

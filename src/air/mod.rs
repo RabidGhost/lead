@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use uuid::Uuid;
 
 use self::syntax::{Flag, Instruction, Reg};
 use crate::{
@@ -188,9 +189,9 @@ impl Lowerable for If {
             self.condition.span(),
         );
 
-        let if_label = String::from("if");
+        let mut if_label = Uuid::new_v4().as_hyphenated().to_string();
+        if_label.push_str("-if");
 
-        // better labels for if statements will be needed
         let branch_if: Segment =
             Segment::block_from_inst(Instruction::BRA(if_label.clone()), self.span());
 
