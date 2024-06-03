@@ -20,65 +20,6 @@ impl std::fmt::Display for Reg {
     }
 }
 
-trait Segment {
-    fn flatten(&self) -> &Vec<Instruction>;
-}
-
-pub struct Block {
-    instructions: Vec<Instruction>,
-    pub output_register: Reg,
-    pub flag_set: Option<Flag>,
-    pub span: (usize, usize),
-}
-
-impl Segment for Block {
-    fn flatten(&self) -> &Vec<Instruction> {
-        self.instructions.as_ref()
-    }
-}
-
-pub struct SubProgram {
-    blocks: Vec<Block>,
-    pub output_register: Reg,
-    pub flag_set: Option<Flag>,
-    pub span: (usize, usize),
-}
-
-// impl Segment for SubProgram {
-//     fn flatten(&self) -> &Vec<Instruction> {
-//         &self
-//             .blocks
-//             .into_iter()
-//             .flat_map(|block| block.flatten())
-//             .map(|x| x.to_owned())
-//             .collect()
-//     }
-// }
-
-impl Block {
-    pub fn new(instructions: &[Instruction], output_register: Reg, span: (usize, usize)) -> Self {
-        Self {
-            instructions: instructions.to_vec(),
-            output_register,
-            flag_set: None,
-            span,
-        }
-    }
-
-    /// append a new instruction at the end of the block
-    pub fn append(&mut self, instruction: Instruction) {
-        match instruction.output_register() {
-            None => (),
-            Some(reg) => self.output_register = reg,
-        }
-        self.instructions.push(instruction);
-    }
-
-    pub fn set_flag(&mut self, flag: Flag) {
-        self.flag_set = Some(flag);
-    }
-}
-
 #[derive(Clone)]
 pub enum Instruction {
     ADD(Reg, Reg, Reg),
@@ -171,35 +112,5 @@ impl std::fmt::Display for Flag {
                 Flag::Le => "<=",
             }
         )
-    }
-}
-
-impl std::fmt::Display for Block {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut indent: usize = 0;
-        for instruction in self.instructions.iter() {
-            match instruction {
-                Instruction::LBL(_) => {
-                    write!(f, "{}{instruction}", "\t".repeat(indent))?;
-                    indent += 1;
-                }
-                _ => write!(f, "{instruction}")?,
-            }
-        }
-        Ok(())
-    }
-}
-
-impl std::iter::Extend<Instruction> for Block {
-    fn extend<T: IntoIterator<Item = Instruction>>(&mut self, iter: T) {
-        self.instructions.extend(iter)
-    }
-}
-
-impl std::iter::IntoIterator for Block {
-    type Item = Instruction;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.instructions.into_iter()
     }
 }

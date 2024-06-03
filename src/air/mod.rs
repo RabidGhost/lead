@@ -5,7 +5,6 @@ use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
     parse::ast::{
         Application, Expression, If, Let, Literal, Mutate, OperatorType, Spans, Statement,
-        UnaryOperator,
     },
 };
 use segment::Segment;

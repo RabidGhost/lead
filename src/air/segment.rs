@@ -1,5 +1,4 @@
 use super::syntax::{Flag, Instruction, Reg};
-use std::iter;
 
 /// A segment of the program, represented by AIR instructions
 #[derive(Clone)]
@@ -216,7 +215,7 @@ impl std::iter::Extend<Instruction> for Segment {
             Self::Block {
                 ref mut instructions,
                 ref mut output_register,
-                ref mut span,
+                span: _,
             } => {
                 instructions.extend(iter);
                 match instructions.last() {
