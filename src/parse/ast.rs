@@ -7,6 +7,7 @@ use super::{
 };
 
 type Span = (usize, usize);
+type Statements = Vec<Statement>;
 type OpRet = Result<Literal, LangError>;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -69,14 +70,14 @@ pub struct Let {
 #[derive(Debug)]
 pub struct If {
     pub condition: Expression,
-    pub iff: Vec<Statement>,
+    pub iff: Statements,
     span: Span,
 }
 
 #[derive(Debug)]
 pub struct While {
     pub condition: Expression,
-    pub body: Vec<Statement>,
+    pub body: Statements,
     span: Span,
 }
 
@@ -87,6 +88,7 @@ pub enum Statement {
     Expr(Expression),
     If(If),
     While(While),
+    Yield(Expression),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -279,7 +281,7 @@ impl Let {
 }
 
 impl If {
-    pub fn from(condition: Expression, body: Vec<Statement>, span: Span) -> Self {
+    pub fn from(condition: Expression, body: Statements, span: Span) -> Self {
         Self {
             condition,
             iff: body,
@@ -289,7 +291,7 @@ impl If {
 }
 
 impl While {
-    pub fn from(condition: Expression, body: Vec<Statement>, span: Span) -> Self {
+    pub fn from(condition: Expression, body: Statements, span: Span) -> Self {
         Self {
             condition,
             body,

@@ -1,6 +1,6 @@
 use crate::error::{LangError, ERROR_INVALID_KEYWORD, ERROR_INVALID_LEXEME};
 
-pub const KEYWORDS: [&'static str; 6] = ["true", "false", "let", "if", "for", "while"];
+pub const KEYWORDS: [&'static str; 7] = ["true", "false", "let", "if", "for", "while", "yield"];
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum TokenType {
@@ -41,6 +41,7 @@ pub enum TokenType {
     If,
     For,
     While,
+    Yield,
 
     // End of file
     EOF,
@@ -143,6 +144,7 @@ impl Token {
                 "let" => TokenType::Let,
                 "for" => TokenType::For,
                 "while" => TokenType::While,
+                "yield" => TokenType::Yield,
                 _ => unreachable!(),
             };
             Ok(Self {

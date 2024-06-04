@@ -150,7 +150,8 @@ mod tests {
                 TokenType::Let,
                 TokenType::If,
                 TokenType::For,
-                TokenType::While
+                TokenType::While,
+                TokenType::Yield,
             ],
             KEYWORDS
                 .into_iter()

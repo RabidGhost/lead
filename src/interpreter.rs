@@ -111,6 +111,7 @@ impl Interpretable for Statement {
                 }
                 Ok(end_state)
             }
+            _ => panic!("this whole module will be removed soon"),
         }
     }
 }

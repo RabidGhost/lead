@@ -139,6 +139,7 @@ impl<'i> LangParser<'i> {
                 // keywords
                 TokenType::Let => Statement::Let(self.parse_let()?),
                 TokenType::While | TokenType::If => self.parse_wif()?,
+                TokenType::Yield => Statement::Yield(self.parse_expr()?),
 
                 _ => todo!(),
             };

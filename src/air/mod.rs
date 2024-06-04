@@ -169,6 +169,16 @@ impl Lowerable for Statement {
             Statement::Mutate(mutate) => mutate.lower(state),
             Statement::If(r#if) => r#if.lower(state),
             Statement::While(r#while) => r#while.lower(state),
+            Statement::Yield(expr) => {
+                let mut expr_block = expr.lower(state)?;
+                match expr_block.output_register() {
+                    None => (),
+                    Some(reg) => {
+                        expr_block.append_inst(Instruction::YLD(reg), expr_block.span_unchecked())
+                    }
+                };
+                Ok(expr_block)
+            }
             _ => todo!(),
         }
     }
