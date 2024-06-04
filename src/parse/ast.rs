@@ -1,14 +1,7 @@
-use crate::error::LangError;
 use crate::lex::token::Token;
-
-use super::{
-    OP_BINARY_MINUS, OP_DIVIDE, OP_EQUAL, OP_GREATERTHAN, OP_GREATERTHANEQUAL, OP_LESSTHAN,
-    OP_LESSTHANEQUAL, OP_MULTIPLY, OP_NOT, OP_NOTEQUAL, OP_PLUS, OP_UNARY_MINUS,
-};
 
 type Span = (usize, usize);
 type Statements = Vec<Statement>;
-type OpRet = Result<Literal, LangError>;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Literal {
@@ -29,28 +22,16 @@ pub enum Expression {
 #[derive(Debug)]
 pub enum Application {
     Unary {
-        op: UnaryOperator,
+        op: OperatorType,
         expr: Box<Expression>,
+        span: Span,
     },
     Binary {
-        op: BinaryOperator,
+        op: OperatorType,
         left: Box<Expression>,
         right: Box<Expression>,
+        span: Span,
     },
-}
-
-#[derive(Debug)]
-pub struct UnaryOperator {
-    ty: OperatorType,
-    f: fn(Literal) -> OpRet,
-    span: Span,
-}
-
-#[derive(Debug)]
-pub struct BinaryOperator {
-    ty: OperatorType,
-    f: fn(Literal, Literal) -> OpRet,
-    span: Span,
 }
 
 #[derive(Debug)]
@@ -137,21 +118,18 @@ impl Spans for Expression {
 impl Spans for Application {
     fn span(&self) -> Span {
         match self {
-            Application::Unary { op, expr } => (op.span().0, expr.span().1),
-            Application::Binary { op: _, left, right } => (left.span().0, right.span().1),
+            Application::Unary {
+                op: _,
+                expr: _,
+                span,
+            } => *span,
+            Application::Binary {
+                op: _,
+                left: _,
+                right: _,
+                span,
+            } => *span,
         }
-    }
-}
-
-impl Spans for UnaryOperator {
-    fn span(&self) -> Span {
-        self.span
-    }
-}
-
-impl Spans for BinaryOperator {
-    fn span(&self) -> Span {
-        self.span
     }
 }
 
@@ -193,57 +171,80 @@ impl Literal {
     }
 }
 
-impl UnaryOperator {
-    pub fn from(tok: &Token, ty: OperatorType) -> Self {
-        Self {
-            ty,
-            f: match ty {
-                OperatorType::Minus => OP_UNARY_MINUS,
-                OperatorType::Not => OP_NOT,
-                _ => panic!("unchecked UnaryOperator::from()"),
-            },
-            span: tok.span(),
+impl Application {
+    /// Create an Application from a unary operator and expression
+    pub fn from_unary(tok: &Token, op: OperatorType, expr: Expression) -> Self {
+        let span = (tok.span().0, expr.span().1);
+        Self::Unary {
+            op,
+            expr: Box::new(expr),
+            span,
         }
     }
 
-    pub fn f(&self, x: Literal) -> OpRet {
-        (self.f)(x)
-    }
-
-    pub fn ty(&self) -> OperatorType {
-        self.ty
-    }
-}
-
-impl BinaryOperator {
-    pub fn from(tok: &Token, ty: OperatorType) -> Self {
-        Self {
-            ty,
-            f: match ty {
-                OperatorType::Plus => OP_PLUS,
-                OperatorType::Minus => OP_BINARY_MINUS,
-                OperatorType::Divide => OP_DIVIDE,
-                OperatorType::Multiply => OP_MULTIPLY,
-                OperatorType::LessThan => OP_LESSTHAN,
-                OperatorType::GreaterThan => OP_GREATERTHAN,
-                OperatorType::LessThanEq => OP_LESSTHANEQUAL,
-                OperatorType::GreaterThanEq => OP_GREATERTHANEQUAL,
-                OperatorType::Equal => OP_EQUAL,
-                OperatorType::NotEqual => OP_NOTEQUAL,
-                _ => panic!("unchecked UnaryOperator::from()"),
-            },
-            span: tok.span(),
+    /// Create an Application from a binary operator and two expressions
+    pub fn from_binary(op: OperatorType, left: Expression, right: Expression) -> Self {
+        let span = (left.span().0, right.span().1);
+        Self::Binary {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+            span,
         }
     }
-
-    pub fn f(&self, x: Literal, y: Literal) -> OpRet {
-        (self.f)(x, y)
-    }
-
-    pub fn ty(&self) -> OperatorType {
-        self.ty
-    }
 }
+
+// impl UnaryOperator {
+//     pub fn from(tok: &Token, ty: OperatorType) -> Self {
+//         Self {
+//             ty,
+//             f: match ty {
+//                 OperatorType::Minus => OP_UNARY_MINUS,
+//                 OperatorType::Not => OP_NOT,
+//                 _ => panic!("unchecked UnaryOperator::from()"),
+//             },
+//             span: tok.span(),
+//         }
+//     }
+
+//     pub fn f(&self, x: Literal) -> OpRet {
+//         (self.f)(x)
+//     }
+
+//     pub fn ty(&self) -> OperatorType {
+//         self.ty
+//     }
+// }
+
+// impl BinaryOperator {
+//     pub fn from(tok: &Token, ty: OperatorType) -> Self {
+//         Self {
+//             ty,
+//             f: match ty {
+//                 OperatorType::Plus => OP_PLUS,
+//                 OperatorType::Minus => OP_BINARY_MINUS,
+//                 OperatorType::Divide => OP_DIVIDE,
+//                 OperatorType::Multiply => OP_MULTIPLY,
+//                 OperatorType::LessThan => OP_LESSTHAN,
+//                 OperatorType::GreaterThan => OP_GREATERTHAN,
+//                 OperatorType::LessThanEq => OP_LESSTHANEQUAL,
+//                 OperatorType::GreaterThanEq => OP_GREATERTHANEQUAL,
+//                 OperatorType::Equal => OP_EQUAL,
+//                 OperatorType::NotEqual => OP_NOTEQUAL,
+//                 _ => panic!("unchecked UnaryOperator::from()"),
+//             },
+//             span: tok.span(),
+//         }
+//     }
+
+//     pub fn f(&self, x: Literal, y: Literal) -> OpRet {
+//         (self.f)(x, y)
+//     }
+
+//     pub fn ty(&self) -> OperatorType {
+//         self.ty
+//     }
+// }
 
 impl Mutate {
     pub fn from(variable: &Token, value: Expression) -> Self {

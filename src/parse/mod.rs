@@ -7,13 +7,10 @@ use crate::{
 };
 
 use self::ast::{
-    Application, BinaryOperator, Expression, If, Let, Literal, Mutate, OperatorType, Statement,
-    UnaryOperator, While,
+    Application, Expression, If, Let, Literal, Mutate, OperatorType, Statement, While,
 };
-use self::ops::*;
 
 pub mod ast;
-mod ops;
 
 pub trait Parser<'i, T: 'i> {
     fn input(&mut self) -> &'i [T];
@@ -139,16 +136,23 @@ impl<'i> LangParser<'i> {
                 // keywords
                 TokenType::Let => Statement::Let(self.parse_let()?),
                 TokenType::While | TokenType::If => self.parse_wif()?,
-                TokenType::Yield => Statement::Yield(self.parse_expr()?),
-
-                _ => todo!(),
+                TokenType::Yield => self.parse_yield()?,
+                _ => {
+                    dbg!(self.peek_one().unwrap());
+                    todo!()
+                }
             };
 
             buf.push(statement);
         }
-
-        //buf.push(Statement::Expr(self.parse_expr()?));
         return Ok(buf);
+    }
+
+    fn parse_yield(&mut self) -> Result<Statement, LangError> {
+        self.consume(TokenType::Yield)?;
+        let statement = Statement::Yield(self.parse_expr()?);
+        self.consume(TokenType::Semicolon)?;
+        Ok(statement)
     }
 
     pub fn parse_wif(&mut self) -> Result<Statement, LangError> {
@@ -219,13 +223,11 @@ impl<'i> LangParser<'i> {
 
             // unary operators
             TokenType::Minus | TokenType::Bang => {
+                let tok = self.peek_one().unwrap().clone();
                 let op = self.parse_unary_operator()?;
                 let expr = self.parse_expr()?;
                 Expression::App {
-                    app: Application::Unary {
-                        op,
-                        expr: Box::new(expr),
-                    },
+                    app: Application::from_unary(&tok, op, expr),
                 }
             }
 
@@ -285,11 +287,7 @@ impl<'i> LangParser<'i> {
                 let op = self.parse_binary_operator()?;
                 let right = self.parse_expr()?;
                 return Ok(Expression::App {
-                    app: Application::Binary {
-                        op,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
+                    app: Application::from_binary(op, left, right),
                 });
             }
             _ => return Ok(left),
@@ -320,11 +318,11 @@ impl<'i> LangParser<'i> {
         Ok(literal)
     }
 
-    fn parse_unary_operator(&mut self) -> Result<UnaryOperator, LangError> {
+    fn parse_unary_operator(&mut self) -> Result<OperatorType, LangError> {
         let tok = self.peek_one()?;
         let op = match tok.token_type() {
-            TokenType::Bang => UnaryOperator::from(tok, OperatorType::Not),
-            TokenType::Minus => UnaryOperator::from(tok, OperatorType::Minus),
+            TokenType::Bang => OperatorType::Not,
+            TokenType::Minus => OperatorType::Minus,
             _ => {
                 return Err(LangError::from(
                     format!("`{tok}` is not a valid unary operator"),
@@ -337,19 +335,19 @@ impl<'i> LangParser<'i> {
         return Ok(op);
     }
 
-    fn parse_binary_operator(&mut self) -> Result<BinaryOperator, LangError> {
+    fn parse_binary_operator(&mut self) -> Result<OperatorType, LangError> {
         let tok = self.peek_one().unwrap();
         let op = match tok.token_type() {
-            TokenType::Minus => BinaryOperator::from(tok, OperatorType::Minus),
-            TokenType::Plus => BinaryOperator::from(tok, OperatorType::Plus),
-            TokenType::Slash => BinaryOperator::from(tok, OperatorType::Divide),
-            TokenType::Star => BinaryOperator::from(tok, OperatorType::Multiply),
-            TokenType::LessThan => BinaryOperator::from(tok, OperatorType::LessThan),
-            TokenType::GreaterThan => BinaryOperator::from(tok, OperatorType::GreaterThan),
-            TokenType::LessThanEq => BinaryOperator::from(tok, OperatorType::LessThanEq),
-            TokenType::GreaterThanEq => BinaryOperator::from(tok, OperatorType::GreaterThanEq),
-            TokenType::EqEq => BinaryOperator::from(tok, OperatorType::Equal),
-            TokenType::BangEq => BinaryOperator::from(tok, OperatorType::NotEqual),
+            TokenType::Minus => OperatorType::Minus,
+            TokenType::Plus => OperatorType::Plus,
+            TokenType::Slash => OperatorType::Divide,
+            TokenType::Star => OperatorType::Multiply,
+            TokenType::LessThan => OperatorType::LessThan,
+            TokenType::GreaterThan => OperatorType::GreaterThan,
+            TokenType::LessThanEq => OperatorType::LessThanEq,
+            TokenType::GreaterThanEq => OperatorType::GreaterThanEq,
+            TokenType::EqEq => OperatorType::Equal,
+            TokenType::BangEq => OperatorType::NotEqual,
             _ => {
                 return Err(LangError::from(
                     format!("`{tok}` is not a valid binary operator"),

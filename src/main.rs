@@ -1,17 +1,18 @@
-use crate::{
-    interpreter::{GlobalAlloc, Interpretable},
-    parse::ast::{Literal, Statement},
-};
-use air::{GenerationState, Lowerable};
+use crate::parse::ast::Statement;
+use air::{generate_program, GenerationState};
 use clap::{Parser, Subcommand};
 use error::LangError;
 use lex::Lexer;
 use parse::LangParser;
-use std::{fs::read_to_string, path::PathBuf};
+use std::{error::Error, fs::read_to_string, path::PathBuf, sync::mpsc::channel, thread};
+
+use lead_vm::{
+    air::Instruction,
+    vm::{Machine, Message},
+};
 
 mod air;
 mod error;
-mod interpreter;
 mod lex;
 mod parse;
 
@@ -53,40 +54,67 @@ fn run(file: PathBuf) {
         }
     };
 
-    let ast = match run_frontend(&input) {
-        Ok(src) => src,
+    let instructions: Vec<Instruction> = match build_air(&input) {
+        Ok(air) => air,
         Err(e) => {
             eprintln!("{e:#?}");
             return;
         }
     };
 
-    let mut alloc: GlobalAlloc = GlobalAlloc::new();
+    match run_instructions(instructions) {
+        Err(e) => eprintln!("{e}"),
+        _ => (),
+    }
+}
 
-    let mut out: Literal = Literal::Unit;
-    for statement in ast {
-        out = match statement.eval(&mut alloc) {
-            Ok(lit) => lit,
+fn run_instructions(instructions: Vec<Instruction>) -> Result<(), Box<dyn Error>> {
+    let (sndr, rcvr) = channel();
+    let mut vm = Machine::new(instructions, sndr);
+    let vm_thread = thread::spawn(move || vm.run());
+
+    loop {
+        match rcvr.recv() {
+            Ok(msg) => match msg {
+                Message::Yield(val) => println!("{val}"),
+                Message::Done => {
+                    vm_thread.join();
+                    break;
+                }
+            },
             Err(e) => {
-                eprintln!("{e:?}");
-                return;
+                vm_thread.join();
+                // vm_thread.join().into()?;
+                return Err(e.into());
             }
         }
     }
-
-    println!("{input}");
-    println!(" = {:?}", out);
+    Ok(())
 }
 
-fn run_frontend(src: &str) -> Result<Vec<Statement>, LangError> {
+fn build_air(src: &str) -> Result<Vec<Instruction>, LangError> {
     let mut lexer: Lexer = Lexer::new(src);
     let tokens = match lexer.run() {
         Ok(tokens) => tokens,
         Err(es) => return Err(es.first().unwrap().to_owned()),
     };
     let mut parser: LangParser = LangParser::new(&tokens);
-    let statements_buf: Vec<Statement> = Vec::new();
-    parser.parse_statement(statements_buf)
+    let ast: Vec<Statement> = parser.parse_statement(Vec::new())?;
+
+    let mut gen_state: GenerationState = GenerationState::new();
+    // this is not efficient at the moment
+    let air = generate_program(&mut gen_state, ast)?
+        .into_iter()
+        .flat_map(|segment| {
+            segment
+                .clone()
+                .flatten()
+                .into_iter()
+                .map(|x| x.to_owned())
+                .collect::<Vec<Instruction>>()
+        })
+        .collect();
+    Ok(air)
 }
 
 fn build(file: PathBuf) {
@@ -98,20 +126,15 @@ fn build(file: PathBuf) {
         }
     };
 
-    let ast = match run_frontend(&input) {
-        Ok(src) => src,
+    let air = match build_air(&input) {
+        Ok(air) => air,
         Err(e) => {
             eprintln!("{e:#?}");
             return;
         }
     };
 
-    let mut gen_state: GenerationState = GenerationState::new();
-
-    for statement in ast {
-        match statement.lower(&mut gen_state) {
-            Ok(air) => print!("{air}"),
-            Err(e) => eprintln!("{e:#?}"),
-        }
+    for instruction in air {
+        println!("{instruction}");
     }
 }

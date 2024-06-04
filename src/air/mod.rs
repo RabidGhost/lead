@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::format};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
@@ -59,6 +59,18 @@ impl GenerationState {
     }
 }
 
+/// Generate a nested unoptimised program.
+pub fn generate_program(
+    state: &mut GenerationState,
+    statements: Vec<Statement>,
+) -> Result<Vec<Segment>, LangError> {
+    let mut segments = Vec::new();
+    for statement in statements {
+        segments.push(statement.lower(state)?)
+    }
+    Ok(segments)
+}
+
 pub trait Lowerable {
     fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError>;
 }
@@ -84,16 +96,16 @@ impl Lowerable for Literal {
 impl Lowerable for Application {
     fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
         match self {
-            Application::Unary { op, expr } => {
+            Application::Unary { op, expr, span } => {
                 let mut block: Segment = expr.lower(state)?;
                 let block_output_register = block
                     .output_register()
                     .expect("expected expr to have Some() output register");
-                match op.ty() {
+                match op {
                     OperatorType::Not => {
                         block.append_inst(
                             Instruction::NOT(state.next_register(), block_output_register),
-                            self.span(),
+                            *span,
                         );
                     }
                     OperatorType::Minus => {
@@ -101,14 +113,19 @@ impl Lowerable for Application {
                         block.append_inst(Instruction::CON(rx, 0), self.span());
                         block.append_inst(
                             Instruction::SUB(state.next_register(), rx, block_output_register),
-                            self.span(),
+                            *span,
                         );
                     }
                     _ => unreachable!(),
                 }
                 Ok(block)
             }
-            Application::Binary { op, left, right } => {
+            Application::Binary {
+                op,
+                left,
+                right,
+                span,
+            } => {
                 let mut rx_block: Segment = left.lower(state)?;
                 let rx: Reg = rx_block
                     .output_register()
@@ -122,7 +139,7 @@ impl Lowerable for Application {
                 rx_block.set_span(new_span);
 
                 rx_block.append_inst(
-                    match op.ty() {
+                    match op {
                         OperatorType::Plus => Instruction::ADD(state.next_register(), rx, ry),
                         OperatorType::Minus => Instruction::SUB(state.next_register(), rx, ry),
                         OperatorType::Multiply => Instruction::MUL(state.next_register(), rx, ry),
@@ -135,7 +152,7 @@ impl Lowerable for Application {
                         OperatorType::Equal => Instruction::CMP(rx, ry, Some(Flag::Eq)),
                         _ => unreachable!("OperatorType::Not is a unary operator "),
                     },
-                    self.span(),
+                    *span,
                 );
                 Ok(rx_block)
             }
@@ -179,7 +196,6 @@ impl Lowerable for Statement {
                 };
                 Ok(expr_block)
             }
-            _ => todo!(),
         }
     }
 }
