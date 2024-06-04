@@ -220,10 +220,15 @@ version = "0.1.0"
 dependencies = [
  "TSPL",
  "clap",
+ "lead-vm",
  "miette",
  "thiserror",
  "uuid",
 ]
+
+[[package]]
+name = "lead-vm"
+version = "0.1.0"
 
 [[package]]
 name = "libc"

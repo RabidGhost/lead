@@ -1,4 +1,4 @@
-use super::syntax::{Flag, Instruction, Reg};
+use lead_vm::air::{Flag, Instruction, Reg};
 
 /// A segment of the program, represented by AIR instructions
 #[derive(Clone)]

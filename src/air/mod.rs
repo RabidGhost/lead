@@ -1,17 +1,16 @@
 use std::{collections::HashMap, fmt::format};
 use uuid::Uuid;
 
-use self::syntax::{Flag, Instruction, Reg};
 use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
     parse::ast::{
         Application, Expression, If, Let, Literal, Mutate, OperatorType, Spans, Statement, While,
     },
 };
+use lead_vm::air::{Flag, Instruction, Reg};
 use segment::Segment;
 
 mod segment;
-mod syntax;
 
 // temp pub struct
 #[derive(Debug)]
