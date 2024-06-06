@@ -14,18 +14,20 @@ pub const ERROR_EXPECTED: u32 = 13;
 pub const ERROR_UNINITIALISED_VARIABLE: u32 = 14;
 pub const ERROR_NULL_VARIABLE_EXPRESSION: u32 = 15;
 
+use crate::lex::span::{Span, Spans};
+
 #[derive(Clone)]
 pub struct LangError {
     number: u32,
-    span: (usize, usize),
+    span: Span,
     message: String,
 }
 
 impl LangError {
-    pub fn from(message: String, span: (usize, usize), number: u32) -> Self {
+    pub fn from(message: String, span: impl Spans, number: u32) -> Self {
         Self {
             number,
-            span,
+            span: span.span(),
             message,
         }
     }
@@ -36,7 +38,10 @@ impl std::fmt::Debug for LangError {
         write!(
             f,
             "[E{}] {}\n\t from {} to {}",
-            self.number, self.message, self.span.0, self.span.1
+            self.number,
+            self.message,
+            self.span.span().0,
+            self.span.span().1
         )
     }
 }
