@@ -1,3 +1,4 @@
+use super::span::{Span, Spans};
 use crate::error::{LangError, ERROR_INVALID_KEYWORD, ERROR_INVALID_LEXEME};
 
 pub const KEYWORDS: [&'static str; 7] = ["true", "false", "let", "if", "for", "while", "yield"];
@@ -50,14 +51,14 @@ pub enum TokenType {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Token {
     token_type: TokenType,
-    span: (usize, usize),
+    span: Span,
 }
 
 impl Token {
     pub fn new(token_type: TokenType, start: usize, length: usize) -> Self {
         Self {
             token_type,
-            span: (start, start + length),
+            span: Span::new((start, start + length)),
         }
     }
 
@@ -65,7 +66,7 @@ impl Token {
         &self.token_type
     }
 
-    pub fn span(&self) -> (usize, usize) {
+    pub fn span(&self) -> Span {
         self.span
     }
 
@@ -104,7 +105,7 @@ impl Token {
 
         Ok(Token {
             token_type: ty,
-            span: (start, start + string.len()),
+            span: Span::new((start, start + string.len())),
         })
     }
 
@@ -115,14 +116,14 @@ impl Token {
         };
         Token {
             token_type: TokenType::Bool(b),
-            span: (start, start + len),
+            span: Span::new((start, start + len)),
         }
     }
 
     pub fn from_num(n: u64, start: usize, stop: usize) -> Self {
         Token {
             token_type: TokenType::Number(n),
-            span: (start, stop),
+            span: Span::new((start, stop)),
         }
     }
 
@@ -133,7 +134,7 @@ impl Token {
                     "invalid keyword `{}`, this error should be impossible",
                     string
                 ),
-                (start, start + string.len()),
+                Span::new((start, start + string.len())),
                 ERROR_INVALID_KEYWORD,
             ))
         } else {
@@ -149,9 +150,15 @@ impl Token {
             };
             Ok(Self {
                 token_type: ty,
-                span: (start, start + string.len()),
+                span: Span::new((start, start + string.len())),
             })
         }
+    }
+}
+
+impl Spans for Token {
+    fn span(&self) -> Span {
+        self.span
     }
 }
 

@@ -1,5 +1,7 @@
 use lead_vm::air::{Flag, Instruction, Reg};
 
+use crate::lex::span::Span;
+
 /// A segment of the program, represented by AIR instructions
 #[derive(Clone)]
 pub enum Segment {
@@ -10,12 +12,12 @@ pub enum Segment {
     Block {
         instructions: Vec<Instruction>,
         output_register: Option<Reg>,
-        span: (usize, usize),
+        span: Span,
     },
 }
 
 impl Segment {
-    pub fn append_inst(&mut self, instruction: Instruction, inst_span: (usize, usize)) {
+    pub fn append_inst(&mut self, instruction: Instruction, inst_span: Span) {
         match self {
             Segment::Block {
                 ref mut instructions,
@@ -29,7 +31,7 @@ impl Segment {
                     }
                 }
                 instructions.push(instruction);
-                *span = (span.0, inst_span.1);
+                span.join(inst_span);
             }
             Segment::SubProgram {
                 ref mut segments,
@@ -53,7 +55,7 @@ impl Segment {
         }
     }
 
-    pub fn append_inst_as_block(&mut self, instruction: Instruction, inst_span: (usize, usize)) {
+    pub fn append_inst_as_block(&mut self, instruction: Instruction, inst_span: Span) {
         let segment = Segment::block_from_inst(instruction, inst_span);
         self.append_segment(segment);
     }
@@ -75,7 +77,7 @@ impl Segment {
         }
     }
 
-    pub fn block_from_inst(instruction: Instruction, span: (usize, usize)) -> Self {
+    pub fn block_from_inst(instruction: Instruction, span: Span) -> Self {
         let output_register = instruction.output_register();
         Self::Block {
             instructions: vec![instruction],
@@ -84,7 +86,7 @@ impl Segment {
         }
     }
 
-    pub fn subprogram_from_inst(instruction: Instruction, span: (usize, usize)) -> Self {
+    pub fn subprogram_from_inst(instruction: Instruction, span: Span) -> Self {
         let output_register = instruction.output_register();
         Self::SubProgram {
             segments: vec![Box::new(Segment::block_from_inst(instruction, span))],
@@ -118,12 +120,12 @@ impl Segment {
         Self::Block {
             instructions: Vec::new(),
             output_register: None,
-            span: (0, 0),
+            span: Span::new((0, 0)),
         }
     }
 
     /// Set the span of the segment. `SubProgram`s do not keep track of their span, so this only effects `Block`s
-    pub fn set_span(&mut self, new_span: (usize, usize)) {
+    pub fn set_span(&mut self, new_span: Span) {
         match self {
             Segment::Block {
                 instructions: _,
@@ -148,7 +150,7 @@ impl Segment {
         }
     }
 
-    pub fn span(&self) -> Option<(usize, usize)> {
+    pub fn span(&self) -> Option<Span> {
         match self {
             Segment::Block {
                 instructions: _,
@@ -163,13 +165,25 @@ impl Segment {
     }
 
     /// Get the span of a `Block`, panics if self is `SubProgram`
-    pub fn span_unchecked(&self) -> (usize, usize) {
+    pub fn span_unchecked(&self) -> Span {
         match self {
             Self::Block {
                 instructions: _,
                 output_register: _,
                 span,
             } => *span,
+            _ => panic!("unchecked span on SubProgram"),
+        }
+    }
+
+    /// Get a mutable reference to the span of a `Block`, panics if self is `SubProgram`
+    pub fn span_unchecked_mut(&mut self) -> &mut Span {
+        match self {
+            Self::Block {
+                instructions: _,
+                output_register: _,
+                ref mut span,
+            } => span,
             _ => panic!("unchecked span on SubProgram"),
         }
     }

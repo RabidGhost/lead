@@ -1,3 +1,4 @@
+pub mod span;
 pub mod token;
 
 use TSPL::{self, Parser};

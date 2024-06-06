@@ -1,6 +1,8 @@
-use crate::lex::token::Token;
+use crate::lex::{
+    span::{Span, Spans},
+    token::Token,
+};
 
-type Span = (usize, usize);
 type Statements = Vec<Statement>;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -89,17 +91,13 @@ pub enum OperatorType {
 
 // spans for ast
 
-pub trait Spans {
-    fn span(&self) -> Span;
-}
-
 impl Spans for Literal {
     fn span(&self) -> Span {
         match self {
             Literal::Char { val: _, span } => *span,
             Literal::Number { val: _, span } => *span,
             Literal::Boolean { val: _, span } => *span,
-            Literal::Unit => (0, 0),
+            Literal::Unit => Span::new((0, 0)),
         }
     }
 }
@@ -174,7 +172,7 @@ impl Literal {
 impl Application {
     /// Create an Application from a unary operator and expression
     pub fn from_unary(tok: &Token, op: OperatorType, expr: Expression) -> Self {
-        let span = (tok.span().0, expr.span().1);
+        let span = Span::superspan(&tok.span(), &expr);
         Self::Unary {
             op,
             expr: Box::new(expr),
@@ -184,7 +182,7 @@ impl Application {
 
     /// Create an Application from a binary operator and two expressions
     pub fn from_binary(op: OperatorType, left: Expression, right: Expression) -> Self {
-        let span = (left.span().0, right.span().1);
+        let span = Span::superspan(&left.span(), &right.span());
         Self::Binary {
             op,
             left: Box::new(left),
@@ -253,7 +251,7 @@ impl Mutate {
             _ => panic!("should not be here"),
         };
 
-        let span = (variable.span().0, value.span().1);
+        let span = Span::superspan(&variable.span(), &value.span());
 
         Mutate {
             variable: name,
@@ -264,14 +262,14 @@ impl Mutate {
 }
 
 impl Let {
-    pub fn from(variable: &Token, value: Expression, start: usize) -> Self {
+    pub fn from(variable: &Token, value: Expression, start: impl Spans) -> Self {
         // this function includes a start of the span, as we dont know where the `let` was
         let name = match variable.token_type() {
             crate::lex::token::TokenType::Identifier(name) => name.clone(),
             _ => panic!("should not be here"),
         };
 
-        let span = (start, value.span().1);
+        let span = Span::superspan(&start.span(), &value.span());
 
         Let {
             variable: name,

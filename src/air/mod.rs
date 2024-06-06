@@ -3,8 +3,9 @@ use uuid::Uuid;
 
 use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
+    lex::span::{Span, Spans},
     parse::ast::{
-        Application, Expression, If, Let, Literal, Mutate, OperatorType, Spans, Statement, While,
+        Application, Expression, If, Let, Literal, Mutate, OperatorType, Statement, While,
     },
 };
 use lead_vm::air::{Flag, Instruction, Reg};
@@ -46,7 +47,7 @@ impl GenerationState {
     fn variable_register(
         &mut self,
         variable: &String,
-        span: (usize, usize),
+        span: impl Spans,
     ) -> Result<&Reg, LangError> {
         match self.variables.get(variable) {
             Some(reg) => Ok(reg),
@@ -134,9 +135,10 @@ impl Lowerable for Application {
                 let ry: Reg = ry_block
                     .output_register()
                     .expect("expected expr to have Some() output register");
-                let new_span = (rx_block.span_unchecked().0, ry_block.span_unchecked().1);
+                rx_block
+                    .span_unchecked_mut()
+                    .join(ry_block.span_unchecked());
                 rx_block.extend(ry_block);
-                rx_block.set_span(new_span);
 
                 rx_block.append_inst(
                     match op {
@@ -168,7 +170,7 @@ impl Lowerable for Expression {
             Expression::Group { expr, span: _ } => expr.lower(state),
             Expression::Identifier { id, span } => {
                 // set the output register to be the variable register, and give back a block with no instructions
-                let variable_register = state.variable_register(&id, self.span())?;
+                let variable_register = state.variable_register(&id, self)?;
                 let mut block = Segment::empty_block();
                 block.set_span(*span);
                 block.set_output_register(variable_register.to_owned());

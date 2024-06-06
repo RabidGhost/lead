@@ -135,6 +135,6 @@ fn build(file: PathBuf) {
     };
 
     for instruction in air {
-        println!("{instruction}");
+        print!("{instruction}");
     }
 }

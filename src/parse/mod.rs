@@ -3,6 +3,7 @@ use crate::{
         LangError, ERROR_EXPECTED, ERROR_INVALID_LITERAL, ERROR_INVALID_OPERATOR,
         ERROR_UNEXPECTED_END_OF_FILE, ERROR_UNMATCHED_DELIMITER,
     },
+    lex::span::Span,
     lex::token::{Token, TokenType},
 };
 
@@ -166,8 +167,12 @@ impl<'i> LangParser<'i> {
         self.consume(TokenType::RightBrace)?;
 
         Ok(match ty {
-            TokenType::If => Statement::If(If::from(condition, body, (start, self.index))),
-            TokenType::While => Statement::While(While::from(condition, body, (start, self.index))),
+            TokenType::If => {
+                Statement::If(If::from(condition, body, Span::new((start, self.index))))
+            }
+            TokenType::While => {
+                Statement::While(While::from(condition, body, Span::new((start, self.index))))
+            }
             _ => {
                 unreachable!()
             }
@@ -175,8 +180,7 @@ impl<'i> LangParser<'i> {
     }
 
     pub fn parse_let(&mut self) -> Result<Let, LangError> {
-        let start = self.index;
-        self.consume(TokenType::Let)?;
+        let start = self.consume(TokenType::Let)?;
         let variable = self.advance_one().ok_or(LangError::from(
             "expected identifier".to_owned(),
             (self.index - 1, self.index),
@@ -233,13 +237,10 @@ impl<'i> LangParser<'i> {
 
             // grouping
             TokenType::LeftParen => {
-                let start = self.index;
-                self.advance_one();
+                let mut span = self.advance_one().unwrap().span();
                 let expr = self.parse_expr()?;
                 match self.peek_one()?.token_type() {
-                    TokenType::RightParen => {
-                        self.advance_one();
-                    }
+                    TokenType::RightParen => span.join(self.advance_one().unwrap()),
                     _ => {
                         return Err(LangError::from(
                             "expected closing delimiter `)`, found `{tok}`".to_owned(),
@@ -250,7 +251,7 @@ impl<'i> LangParser<'i> {
                 };
                 Expression::Group {
                     expr: Box::new(expr),
-                    span: (start, self.index),
+                    span,
                 }
             }
             TokenType::Identifier(name) => Expression::Identifier {
