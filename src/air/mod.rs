@@ -175,6 +175,12 @@ impl Lowerable for Expression {
                 block.set_output_register(variable_register.to_owned());
                 Ok(block)
             }
+            Expression::Array {
+                elements: _,
+                span: _,
+            } => {
+                unimplemented!("no air impementaion for arrays exists yet")
+            }
         }
     }
 }

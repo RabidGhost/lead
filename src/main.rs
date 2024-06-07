@@ -35,6 +35,9 @@ enum Commands {
     Lex {
         file: PathBuf,
     },
+    Parse {
+        file: PathBuf,
+    },
     Repl,
 }
 
@@ -45,6 +48,7 @@ fn main() -> Result<()> {
         Commands::Run { file } => run(file)?,
         Commands::Build { file } => build(file)?,
         Commands::Lex { file } => lex(file)?,
+        Commands::Parse { file } => parse(file)?,
         _ => todo!("implement repl"),
     }
     Ok(())
@@ -79,6 +83,27 @@ fn lex(file: PathBuf) -> Result<()> {
             }
             _ => (),
         }
+    }
+    Ok(())
+}
+
+fn parse(file: PathBuf) -> Result<()> {
+    let input: String = match read_to_string(file.as_path()) {
+        Ok(src) => src,
+        Err(e) => {
+            eprintln!("error reading file: {e}");
+            return Ok(());
+        }
+    };
+    let mut lexer: Lexer = Lexer::new(&input);
+    let tokens = lexer.run()?; // {
+                               //     Ok(tokens) => tokens,
+                               //     Err(es) => return Err(es.first().unwrap().to_owned()),
+                               // };
+    let mut parser: LangParser = LangParser::new(&tokens);
+    let ast: Vec<Statement> = parser.parse_statement(Vec::new())?;
+    for statement in ast {
+        println!("{:?}", statement);
     }
     Ok(())
 }

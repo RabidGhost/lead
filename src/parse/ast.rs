@@ -14,10 +14,24 @@ pub enum Literal {
 
 #[derive(Debug)]
 pub enum Expression {
-    App { app: Application },
-    Group { expr: Box<Expression>, span: Span },
-    Literal { lit: Literal },
-    Identifier { id: String, span: Span },
+    App {
+        app: Application,
+    },
+    Group {
+        expr: Box<Expression>,
+        span: Span,
+    },
+    Literal {
+        lit: Literal,
+    },
+    Identifier {
+        id: String,
+        span: Span,
+    },
+    Array {
+        elements: Vec<Box<Expression>>,
+        span: Span,
+    },
 }
 
 #[derive(Debug)]
@@ -107,6 +121,7 @@ impl Spans for Expression {
             Expression::Group { expr: _, span } => *span,
             Expression::App { app } => app.span(),
             Expression::Identifier { id: _, span } => *span,
+            Expression::Array { elements: _, span } => *span,
         }
     }
 }

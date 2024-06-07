@@ -220,7 +220,6 @@ impl<'i> LangParser<'i> {
 
                 self.parse_partial(left)?
             }
-
             // unary operators
             TokenType::Minus | TokenType::Bang => {
                 let tok = self.peek_one().unwrap().clone();
@@ -230,7 +229,6 @@ impl<'i> LangParser<'i> {
                     app: Application::from_unary(&tok, op, expr),
                 }
             }
-
             // grouping
             TokenType::LeftParen => {
                 let mut span = self.advance_one().unwrap().span();
@@ -254,6 +252,7 @@ impl<'i> LangParser<'i> {
                 id: (*name).clone(),
                 span: self.advance_one().unwrap().span(),
             },
+            TokenType::LeftSquare => self.parse_array()?,
             tok => {
                 dbg!(tok);
                 todo!()
@@ -355,6 +354,22 @@ impl<'i> LangParser<'i> {
         };
         self.advance_one();
         return Ok(op);
+    }
+
+    fn parse_array(&mut self) -> Result<Expression, LangError> {
+        let mut elements: Vec<Box<Expression>> = Vec::new();
+        let left_square = self.consume(TokenType::LeftSquare)?;
+        while *self.peek_one()?.token_type() != TokenType::RightSquare {
+            if *self.peek_one()?.token_type() == TokenType::Comma {
+                self.consume(TokenType::Comma)?;
+            }
+            elements.push(Box::new(self.parse_expr()?));
+        }
+        let right_square = self.consume(TokenType::RightSquare)?;
+        Ok(Expression::Array {
+            elements,
+            span: Span::superspan(left_square, right_square),
+        })
     }
 
     /// checks if their are no tokens remaining, or the current token is `EOF`.
