@@ -1,10 +1,12 @@
 use crate::{
     error::{
         LangError, ERROR_EXPECTED, ERROR_INVALID_LITERAL, ERROR_INVALID_OPERATOR,
-        ERROR_UNEXPECTED_END_OF_FILE, ERROR_UNMATCHED_DELIMITER,
+        ERROR_UNEXPECTED_END_OF_FILE, ERROR_UNEXPECTED_TOKEN, ERROR_UNMATCHED_DELIMITER,
     },
-    lex::span::Span,
-    lex::token::{Token, TokenType},
+    lex::{
+        span::Span,
+        token::{Token, TokenType},
+    },
 };
 
 use self::ast::{
@@ -139,8 +141,12 @@ impl<'i> LangParser<'i> {
                 TokenType::While | TokenType::If => self.parse_wif()?,
                 TokenType::Yield => self.parse_yield()?,
                 _ => {
-                    dbg!(self.peek_one().unwrap());
-                    todo!()
+                    let tok = self.peek_one()?;
+                    return Err(LangError::from(
+                        format!("unexpected token `{}`", tok),
+                        &tok,
+                        ERROR_UNEXPECTED_TOKEN,
+                    ));
                 }
             };
 
@@ -248,10 +254,27 @@ impl<'i> LangParser<'i> {
                     span,
                 }
             }
-            TokenType::Identifier(name) => Expression::Identifier {
-                id: (*name).clone(),
-                span: self.advance_one().unwrap().span(),
-            },
+            // identifier or array index
+            TokenType::Identifier(name) => {
+                let identifier = Expression::Identifier {
+                    id: (*name).clone(),
+                    span: self.advance_one().unwrap().span(),
+                };
+                match self.peek_one()?.token_type() {
+                    TokenType::LeftSquare => {
+                        self.consume(TokenType::LeftSquare)?;
+                        let index = Box::new(self.parse_expr()?);
+                        let span =
+                            Span::superspan(&identifier, self.consume(TokenType::RightSquare)?);
+                        Expression::Index {
+                            variable: Box::new(identifier),
+                            index,
+                            span,
+                        }
+                    }
+                    _ => identifier,
+                }
+            }
             TokenType::LeftSquare => self.parse_array()?,
             tok => {
                 dbg!(tok);

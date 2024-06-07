@@ -181,6 +181,11 @@ impl Lowerable for Expression {
             } => {
                 unimplemented!("no air impementaion for arrays exists yet")
             }
+            Expression::Index {
+                variable: _,
+                index: _,
+                span: _,
+            } => unimplemented!("no air impementaion for array indexing exists yet"),
         }
     }
 }

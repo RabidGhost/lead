@@ -96,12 +96,14 @@ fn parse(file: PathBuf) -> Result<()> {
         }
     };
     let mut lexer: Lexer = Lexer::new(&input);
-    let tokens = lexer.run()?; // {
-                               //     Ok(tokens) => tokens,
-                               //     Err(es) => return Err(es.first().unwrap().to_owned()),
-                               // };
+    let tokens = lexer.run().map_err(|e| e.with_src(input.clone()))?; // {
+                                                                      //     Ok(tokens) => tokens,
+                                                                      //     Err(es) => return Err(es.first().unwrap().to_owned()),
+                                                                      // };
     let mut parser: LangParser = LangParser::new(&tokens);
-    let ast: Vec<Statement> = parser.parse_statement(Vec::new())?;
+    let ast: Vec<Statement> = parser
+        .parse_statement(Vec::new())
+        .map_err(|e| e.with_src(input))?;
     for statement in ast {
         println!("{:?}", statement);
     }

@@ -32,6 +32,11 @@ pub enum Expression {
         elements: Vec<Box<Expression>>,
         span: Span,
     },
+    Index {
+        variable: Box<Expression>,
+        index: Box<Expression>,
+        span: Span,
+    },
 }
 
 #[derive(Debug)]
@@ -122,6 +127,11 @@ impl Spans for Expression {
             Expression::App { app } => app.span(),
             Expression::Identifier { id: _, span } => *span,
             Expression::Array { elements: _, span } => *span,
+            Expression::Index {
+                variable: _,
+                index: _,
+                span,
+            } => *span,
         }
     }
 }

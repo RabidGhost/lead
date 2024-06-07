@@ -13,6 +13,7 @@ pub const ERROR_UNKNOWN_VARIABLE: u32 = 12;
 pub const ERROR_EXPECTED: u32 = 13;
 pub const ERROR_UNINITIALISED_VARIABLE: u32 = 14;
 pub const ERROR_NULL_VARIABLE_EXPRESSION: u32 = 15;
+pub const ERROR_UNEXPECTED_TOKEN: u32 = 16;
 
 use crate::lex::span::{Span, Spans};
 use miette::{Diagnostic, Report};
