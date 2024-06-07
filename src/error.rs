@@ -15,10 +15,14 @@ pub const ERROR_UNINITIALISED_VARIABLE: u32 = 14;
 pub const ERROR_NULL_VARIABLE_EXPRESSION: u32 = 15;
 
 use crate::lex::span::{Span, Spans};
+use miette::{Diagnostic, Report};
+use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Diagnostic, Error)]
+#[diagnostic()]
 pub struct LangError {
     number: u32,
+    #[label]
     span: Span,
     message: String,
 }
@@ -30,6 +34,10 @@ impl LangError {
             span: span.span(),
             message,
         }
+    }
+
+    pub fn with_src(self, src: String) -> Report {
+        <LangError as Into<Report>>::into(self).with_source_code(src)
     }
 }
 
@@ -43,5 +51,11 @@ impl std::fmt::Debug for LangError {
             self.span.span().0,
             self.span.span().1
         )
+    }
+}
+
+impl std::fmt::Display for LangError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
     }
 }

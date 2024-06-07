@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
-    lex::span::{Span, Spans},
+    lex::span::Spans,
     parse::ast::{
         Application, Expression, If, Let, Literal, Mutate, OperatorType, Statement, While,
     },

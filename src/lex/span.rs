@@ -1,6 +1,8 @@
 use std::cmp::{max, min};
 use uuid::Uuid;
 
+use miette::SourceSpan;
+
 /// A span of text in the source code of the program. `Span`s are asserted to run from left to right.
 #[derive(Clone, Copy, Ord, PartialOrd)]
 pub struct Span {
@@ -97,6 +99,12 @@ impl std::cmp::PartialEq for Span {
 
     fn ne(&self, other: &Self) -> bool {
         self.span.0 != other.span.0 || self.span.1 != other.span.1
+    }
+}
+
+impl Into<SourceSpan> for Span {
+    fn into(self) -> SourceSpan {
+        SourceSpan::from((self.span.0, self.span.1 - self.span.0))
     }
 }
 

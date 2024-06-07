@@ -3,13 +3,14 @@ pub mod token;
 
 use TSPL::{self, Parser};
 
-use crate::error::{LangError, ERROR_INVALID_CHARACTER_LITERAL, ERROR_INVALID_NUMBER_LITERAL};
+use crate::error::{
+    LangError, ERROR_INVALID_CHARACTER_LITERAL, ERROR_INVALID_LEXEME, ERROR_INVALID_NUMBER_LITERAL,
+};
 use token::{Token, TokenType, KEYWORDS};
 
 pub struct Lexer<'l> {
     src: &'l str,
     index: usize,
-    errors: Vec<LangError>,
 }
 
 impl<'i> TSPL::Parser<'i> for Lexer<'i> {
@@ -24,20 +25,18 @@ impl<'i> TSPL::Parser<'i> for Lexer<'i> {
 
 impl<'l> Lexer<'l> {
     pub fn new(src: &'l str) -> Self {
-        Self {
-            src,
-            index: 0,
-            errors: Vec::new(),
-        }
+        Self { src, index: 0 }
     }
 
-    pub fn run(&mut self) -> Result<Vec<Token>, Vec<LangError>> {
+    pub fn run(&mut self) -> Result<Vec<Token>, LangError> {
         let mut buf = Vec::new();
-        match self.lex(&mut buf) {
-            Ok(_) => (),
-            Err(e) => return Err(vec![e]),
-        }
-        return Ok(buf);
+        self.lex(&mut buf)?;
+        Ok(buf)
+        // match self.lex(&mut buf) {
+        //     Ok(_) => (),
+        //     Err(e) => return Err(vec![e]),
+        // }
+        // return Ok(buf);
     }
 
     fn lex(&mut self, buf: &mut Vec<Token>) -> Result<(), LangError> {
@@ -110,8 +109,12 @@ impl<'l> Lexer<'l> {
                     tok = Token::new(TokenType::Identifier(name.to_owned()), start, name.len())
                 }
             }
-            _ => {
-                unimplemented!()
+            ch => {
+                return Err(LangError::from(
+                    format!("unknown lexeme `{}`", ch),
+                    (start, start + 1),
+                    ERROR_INVALID_LEXEME,
+                ))
             }
         }
 

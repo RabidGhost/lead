@@ -2,14 +2,14 @@ use crate::parse::ast::Statement;
 use air::{generate_program, GenerationState};
 use clap::{Parser, Subcommand};
 use error::LangError;
-use lex::{token::TokenType, Lexer};
-use parse::LangParser;
-use std::{error::Error, fs::read_to_string, path::PathBuf, sync::mpsc::channel, thread};
-
 use lead_vm::{
     air::Instruction,
     vm::{Machine, Message},
 };
+use lex::{token::TokenType, Lexer};
+use miette::Result;
+use parse::LangParser;
+use std::{fs::read_to_string, path::PathBuf, sync::mpsc::channel, thread};
 
 mod air;
 mod error;
@@ -38,34 +38,29 @@ enum Commands {
     Repl,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Run { file } => run(file),
-        Commands::Build { file } => build(file),
-        Commands::Lex { file } => lex(file),
+        Commands::Run { file } => run(file)?,
+        Commands::Build { file } => build(file)?,
+        Commands::Lex { file } => lex(file)?,
         _ => todo!("implement repl"),
     }
+    Ok(())
 }
 
-fn lex(file: PathBuf) {
+fn lex(file: PathBuf) -> Result<()> {
     let input: String = match read_to_string(file.as_path()) {
         Ok(src) => src,
         Err(e) => {
             eprintln!("error reading file: {e}");
-            return;
+            return Ok(());
         }
     };
 
     let mut lexer: Lexer = Lexer::new(&input);
-    let tokens = match lexer.run() {
-        Ok(tokens) => tokens,
-        Err(es) => {
-            eprintln!("{:?}", es.first().unwrap().to_owned());
-            return;
-        }
-    };
+    let tokens = lexer.run().map_err(|err| err.with_src(input))?;
 
     let mut indent: usize = 0;
 
@@ -85,32 +80,25 @@ fn lex(file: PathBuf) {
             _ => (),
         }
     }
+    Ok(())
 }
 
-fn run(file: PathBuf) {
+fn run(file: PathBuf) -> Result<()> {
     let input: String = match read_to_string(file.as_path()) {
         Ok(src) => src,
         Err(e) => {
             eprintln!("error reading file: {e}");
-            return;
+            return Ok(());
         }
     };
 
-    let instructions: Vec<Instruction> = match build_air(&input) {
-        Ok(air) => air,
-        Err(e) => {
-            eprintln!("{e:#?}");
-            return;
-        }
-    };
+    let instructions: Vec<Instruction> = build_air(&input)?;
 
-    match run_instructions(instructions) {
-        Err(e) => eprintln!("{e}"),
-        _ => (),
-    }
+    run_instructions(instructions).map_err(|e| e.with_src(input))?;
+    Ok(())
 }
 
-fn run_instructions(instructions: Vec<Instruction>) -> Result<(), Box<dyn Error>> {
+fn run_instructions(instructions: Vec<Instruction>) -> Result<(), LangError> {
     let (sndr, rcvr) = channel();
     let mut vm = Machine::new(instructions, sndr);
     let vm_thread = thread::spawn(move || vm.run());
@@ -127,19 +115,20 @@ fn run_instructions(instructions: Vec<Instruction>) -> Result<(), Box<dyn Error>
             Err(e) => {
                 vm_thread.join();
                 // vm_thread.join().into()?;
-                return Err(e.into());
+                eprintln!("{e}");
+                return Ok(());
             }
         }
     }
     Ok(())
 }
 
-fn build_air(src: &str) -> Result<Vec<Instruction>, LangError> {
+fn build_air(src: &str) -> Result<Vec<Instruction>> {
     let mut lexer: Lexer = Lexer::new(src);
-    let tokens = match lexer.run() {
-        Ok(tokens) => tokens,
-        Err(es) => return Err(es.first().unwrap().to_owned()),
-    };
+    let tokens = lexer.run()?; // {
+                               //     Ok(tokens) => tokens,
+                               //     Err(es) => return Err(es.first().unwrap().to_owned()),
+                               // };
     let mut parser: LangParser = LangParser::new(&tokens);
     let ast: Vec<Statement> = parser.parse_statement(Vec::new())?;
 
@@ -159,24 +148,22 @@ fn build_air(src: &str) -> Result<Vec<Instruction>, LangError> {
     Ok(air)
 }
 
-fn build(file: PathBuf) {
+fn build(file: PathBuf) -> Result<()> {
     let input: String = match read_to_string(file.as_path()) {
         Ok(src) => src,
         Err(e) => {
+            // really not sure why i cant use into_diagnostic with this
+            // return Err(<std::io::Error as Into<std::error::Error>>::into(e).into_diagnostic());
+            // return Err(e.int());
             eprintln!("error reading file: {e}");
-            return;
+            return Ok(());
         }
     };
 
-    let air = match build_air(&input) {
-        Ok(air) => air,
-        Err(e) => {
-            eprintln!("{e:#?}");
-            return;
-        }
-    };
+    let air = build_air(&input)?;
 
     for instruction in air {
         print!("{instruction}");
     }
+    Ok(())
 }
