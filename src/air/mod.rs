@@ -89,7 +89,6 @@ impl Lowerable for Literal {
             Literal::Boolean { val, span } => {
                 Segment::block_from_inst(Instruction::CON(reg, *val as u32), *span)
             }
-            Literal::Unit => todo!("implement unit literal"),
         })
     }
 }

@@ -10,7 +10,6 @@ pub enum Literal {
     Boolean { val: bool, span: Span },
     Char { val: char, span: Span },
     Number { val: i32, span: Span },
-    Unit,
 }
 
 #[derive(Debug)]
@@ -97,7 +96,6 @@ impl Spans for Literal {
             Literal::Char { val: _, span } => *span,
             Literal::Number { val: _, span } => *span,
             Literal::Boolean { val: _, span } => *span,
-            Literal::Unit => Span::new((0, 0)),
         }
     }
 }
@@ -314,7 +312,6 @@ impl std::fmt::Debug for Literal {
             Literal::Char { val, span: _ } => write!(f, "{val}"),
             Literal::Boolean { val, span: _ } => write!(f, "{val}"),
             Literal::Number { val, span: _ } => write!(f, "{val}"),
-            Literal::Unit => write!(f, "()"),
         }
     }
 }
