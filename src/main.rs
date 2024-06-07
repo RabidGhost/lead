@@ -2,7 +2,7 @@ use crate::parse::ast::Statement;
 use air::{generate_program, GenerationState};
 use clap::{Parser, Subcommand};
 use error::LangError;
-use lex::Lexer;
+use lex::{token::TokenType, Lexer};
 use parse::LangParser;
 use std::{error::Error, fs::read_to_string, path::PathBuf, sync::mpsc::channel, thread};
 
@@ -32,6 +32,9 @@ enum Commands {
     Build {
         file: PathBuf,
     },
+    Lex {
+        file: PathBuf,
+    },
     Repl,
 }
 
@@ -41,7 +44,46 @@ fn main() {
     match cli.command {
         Commands::Run { file } => run(file),
         Commands::Build { file } => build(file),
+        Commands::Lex { file } => lex(file),
         _ => todo!("implement repl"),
+    }
+}
+
+fn lex(file: PathBuf) {
+    let input: String = match read_to_string(file.as_path()) {
+        Ok(src) => src,
+        Err(e) => {
+            eprintln!("error reading file: {e}");
+            return;
+        }
+    };
+
+    let mut lexer: Lexer = Lexer::new(&input);
+    let tokens = match lexer.run() {
+        Ok(tokens) => tokens,
+        Err(es) => {
+            eprintln!("{:?}", es.first().unwrap().to_owned());
+            return;
+        }
+    };
+
+    let mut indent: usize = 0;
+
+    for token in tokens {
+        print!("{} ", token);
+        let ty = token.token_type();
+        match ty {
+            TokenType::Semicolon => print!("\n{}", "\t".repeat(indent)),
+            TokenType::LeftBrace => {
+                indent += 1;
+                print!("\n{}", "\t".repeat(indent));
+            }
+            TokenType::RightBrace => {
+                indent = usize::max(0, indent - 1);
+                print!("\n{}", "\t".repeat(indent));
+            }
+            _ => (),
+        }
     }
 }
 
