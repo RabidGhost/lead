@@ -181,19 +181,16 @@ impl<'i> LangParser<'i> {
 
     pub fn parse_let(&mut self) -> Result<Let, LangError> {
         let start = self.consume(TokenType::Let)?;
-        let variable = self.advance_one().ok_or(LangError::from(
-            "expected identifier".to_owned(),
-            (self.index - 1, self.index),
-            ERROR_UNEXPECTED_END_OF_FILE,
-        ))?;
-        self.consume(TokenType::Assign)?;
-        let value = self.parse_expr()?;
-        let assign = Let::from(variable, value, start);
-        self.consume(TokenType::Semicolon)?;
-        Ok(assign)
+        let (variable, expr) = self.parse_assign()?;
+        Ok(Let::from(variable, expr, start))
     }
 
     pub fn parse_mutate(&mut self) -> Result<Mutate, LangError> {
+        let (variable, expr) = self.parse_assign()?;
+        Ok(Mutate::from(variable, expr))
+    }
+
+    pub fn parse_assign(&mut self) -> Result<(&Token, Expression), LangError> {
         let variable = self.advance_one().ok_or(LangError::from(
             "expected identifier".to_owned(),
             (self.index - 1, self.index),
@@ -201,9 +198,8 @@ impl<'i> LangParser<'i> {
         ))?;
         self.consume(TokenType::Assign)?;
         let value = self.parse_expr()?;
-        let assign = Mutate::from(variable, value);
         self.consume(TokenType::Semicolon)?;
-        Ok(assign)
+        Ok((variable, value))
     }
 
     pub fn parse_expr(&mut self) -> Result<Expression, LangError> {
