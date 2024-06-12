@@ -1,7 +1,6 @@
 use crate::parse::ast::Statement;
 use air::{generate_program, GenerationState};
 use clap::{Parser, Subcommand};
-use error::LangError;
 use lead_vm::{
     air::Instruction,
     vm::{Machine, Message},
@@ -81,10 +80,6 @@ enum PipelineError {
 }
 
 impl Pipeline {
-    fn new(src: String) -> Self {
-        Self::Text(src)
-    }
-
     fn lex(self) -> Result<Self> {
         match self {
             Pipeline::Text(src) => {
@@ -116,7 +111,8 @@ impl Pipeline {
             Self::SyntaxTree(src, ast) => {
                 let mut gen_state: GenerationState = GenerationState::new();
                 // this is not efficient at the moment
-                let air: Vec<Instruction> = generate_program(&mut gen_state, ast)?
+                let air: Vec<Instruction> = generate_program(&mut gen_state, ast)
+                    .map_err(|err| err.with_src(src.clone()))?
                     .into_iter()
                     .flat_map(|segment| {
                         segment
@@ -167,9 +163,9 @@ impl Pipeline {
 impl TryFrom<PathBuf> for Pipeline {
     type Error = PipelineError;
     fn try_from(value: PathBuf) -> std::result::Result<Self, Self::Error> {
-        Ok(Pipeline::Text(
-            read_to_string(value.as_path()).map_err(|e| PipelineError::ReadError(e.to_string()))?,
-        ))
+        Ok(Pipeline::Text(read_to_string(value.as_path()).map_err(
+            |e| PipelineError::ReadError(format!("{:?}", e)),
+        )?))
     }
 }
 
