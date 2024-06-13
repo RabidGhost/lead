@@ -27,3 +27,24 @@ fn branch_simple() {
     vm.run();
     assert_eq!(Ok(Message::Yield(17)), recvr.recv())
 }
+
+#[test]
+fn store_and_load() {
+    let instructions = vec![
+        Instruction::CON(Reg(0), 0xdeadbeef),         // mov r0, #0xdead
+        Instruction::CON(Reg(1), 0),                  // mov r1, #0
+        Instruction::STR(Reg(0), Reg(1), Mode::None), // str r0, [r1]
+        Instruction::ADD(Reg(1), Reg(1), Reg(1)),     // nop
+        Instruction::LDR(Reg(2), Reg(1), Mode::None), // ldr r2, [r1]
+        Instruction::YLD(Reg(2)),                     // yield r2
+    ];
+
+    let memory: Vec<u8> = vec![0, 0, 0, 0];
+
+    let (sndr, recvr) = channel();
+    let mut vm = Machine::with_memory(instructions, sndr, memory);
+    vm.run();
+
+    assert_eq!(vm.memory, vec![0xde, 0xad, 0xbe, 0xef]);
+    assert_eq!(Ok(Message::Yield(0xdeadbeef)), recvr.recv())
+}

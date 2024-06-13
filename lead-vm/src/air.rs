@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Reg(pub u32);
 
 impl std::ops::Deref for Reg {
@@ -39,11 +39,24 @@ pub enum Instruction {
     CMP(Reg, Reg, Option<Flag>),
     CHK(Flag),
 
+    /// Store a register in memory, at a memory address given by rx, with a memmory addressing mode
+    STR(Reg, Reg, Mode),
+    /// Read to a register from memory, at a memory address given by rx, with a memmory addressing mode
+    LDR(Reg, Reg, Mode),
+
     LBL(String),
     ///
     BRA(String),
     /// Yield a register. This returns the value in the register, and continues executing.
     YLD(Reg),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    None,
+    Offset(Reg),
+    PreOffset(Reg),
+    PostOffset(Reg),
 }
 
 impl Instruction {
@@ -98,6 +111,19 @@ impl std::fmt::Display for Instruction {
 
             Instruction::CHK(flag) => writeln!(f, "CHK {flag}",),
             Instruction::YLD(rx) => writeln!(f, "YLD {rx}"),
+
+            Instruction::STR(rd, adr, mode) => match mode {
+                Mode::None => write!(f, "STR {rd}, [{adr}]"),
+                Mode::Offset(ofst) => write!(f, "STR {rd}, [{adr}, {ofst}]"),
+                Mode::PreOffset(ofst) => write!(f, "STR {rd}, [{adr}, {ofst}]!"),
+                Mode::PostOffset(ofst) => write!(f, "STR {rd}, [{adr}], {ofst}"),
+            },
+            Instruction::LDR(rd, adr, mode) => match mode {
+                Mode::None => write!(f, "LDR {rd}, [{adr}]"),
+                Mode::Offset(ofst) => write!(f, "LDR {rd}, [{adr}, {ofst}]"),
+                Mode::PreOffset(ofst) => write!(f, "LDR {rd}, [{adr}, {ofst}]!"),
+                Mode::PostOffset(ofst) => write!(f, "LDR {rd}, [{adr}], {ofst}"),
+            },
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::air::{Flag, Instruction, Reg};
+use crate::air::{Flag, Instruction, Mode, Reg};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
@@ -14,6 +14,7 @@ pub enum Message {
 pub struct Machine {
     instructions: Vec<Instruction>,
     registers: HashMap<u32, u32>,
+    memory: Vec<u8>,
     yield_callback: Sender<Message>,
     /// program counter
     pc: usize,
@@ -24,6 +25,22 @@ impl Machine {
     pub fn new(instructions: Vec<Instruction>, yield_sender: Sender<Message>) -> Self {
         Self {
             instructions,
+            memory: Vec::with_capacity(64),
+            registers: HashMap::new(),
+            yield_callback: yield_sender,
+            pc: 0,
+            flags: Flags::empty(),
+        }
+    }
+
+    fn with_memory(
+        instructions: Vec<Instruction>,
+        yield_sender: Sender<Message>,
+        memory: Vec<u8>,
+    ) -> Self {
+        Self {
+            instructions,
+            memory,
             registers: HashMap::new(),
             yield_callback: yield_sender,
             pc: 0,
@@ -55,14 +72,14 @@ impl Machine {
 
     fn process(&mut self, instruction: &Instruction) {
         match instruction {
-            Instruction::ADD(rd, rx, ry) => self.store(rd, &((self.get(rx)) + self.get(ry))),
-            Instruction::SUB(rd, rx, ry) => self.store(rd, &((self.get(rx)) - self.get(ry))),
-            Instruction::MUL(rd, rx, ry) => self.store(rd, &((self.get(rx)) * self.get(ry))),
-            Instruction::DIV(rd, rx, ry) => self.store(rd, &((self.get(rx)) / self.get(ry))),
+            Instruction::ADD(rd, rx, ry) => self.save(rd, &((self.get(rx)) + self.get(ry))),
+            Instruction::SUB(rd, rx, ry) => self.save(rd, &((self.get(rx)) - self.get(ry))),
+            Instruction::MUL(rd, rx, ry) => self.save(rd, &((self.get(rx)) * self.get(ry))),
+            Instruction::DIV(rd, rx, ry) => self.save(rd, &((self.get(rx)) / self.get(ry))),
             Instruction::CMP(rx, ry, _) => self.set_flags(rx, ry),
-            Instruction::CON(rd, val) => self.store(rd, val),
-            Instruction::MOV(rd, rx) => self.store(rd, &self.get(rx)),
-            Instruction::NOT(rd, rx) => self.store(rd, &!self.get(rx)),
+            Instruction::CON(rd, val) => self.save(rd, val),
+            Instruction::MOV(rd, rx) => self.save(rd, &self.get(rx)),
+            Instruction::NOT(rd, rx) => self.save(rd, &!self.get(rx)),
             Instruction::BRA(label) => self.branch(label),
             Instruction::YLD(rx) => self.yield_register(rx),
             Instruction::LBL(_) => (),
@@ -70,6 +87,11 @@ impl Machine {
                 if !self.flags.contains(*flag) {
                     self.advance(1)
                 }
+            }
+            Instruction::STR(data, addr, mode) => self.store(addr, &self.get(data), mode),
+            Instruction::LDR(rd, addr, mode) => {
+                let data = &self.load(addr, mode);
+                self.save(rd, data)
             }
         }
     }
@@ -79,9 +101,66 @@ impl Machine {
         *self.registers.get(&(*reg)).unwrap()
     }
 
-    /// Store a value in a register
-    fn store(&mut self, reg: &Reg, val: &u32) {
+    /// Save a value in a register
+    fn save(&mut self, reg: &Reg, val: &u32) {
         self.registers.insert(**reg, *val);
+    }
+
+    fn store(&mut self, rd: &Reg, value: &u32, mode: &Mode) {
+        let bytes = value.to_be_bytes();
+
+        let addr = match mode {
+            Mode::None | Mode::PostOffset(_) => self.get(rd) as usize,
+            Mode::Offset(r_ofst) => (self.get(rd) + self.get(&r_ofst)) as usize,
+            Mode::PreOffset(r_ofst) => {
+                let addr = self.get(rd) + self.get(&r_ofst);
+                self.save(rd, &addr);
+                addr as usize
+            }
+        };
+
+        for (i, byte) in bytes.iter().enumerate() {
+            let mem: &mut u8 = self
+                .memory
+                .get_mut(addr + i)
+                .expect("error handling needed in vm");
+            *mem = *byte;
+        }
+
+        match mode {
+            Mode::PostOffset(r_ofst) => {
+                let addr = self.get(rd) + self.get(&r_ofst);
+                self.save(rd, &addr);
+            }
+            _ => (),
+        }
+    }
+
+    // consider a storeb variant
+
+    fn load(&mut self, rd: &Reg, mode: &Mode) -> u32 {
+        let mut bytes: [u8; 4] = [0; 4];
+
+        let addr = match mode {
+            Mode::None | Mode::PostOffset(_) => self.get(rd) as usize,
+            Mode::Offset(r_ofst) => (self.get(rd) + self.get(&r_ofst)) as usize,
+            Mode::PreOffset(r_ofst) => {
+                let addr = self.get(rd) + self.get(&r_ofst);
+                self.save(rd, &addr);
+                addr as usize
+            }
+        };
+
+        for i in 0..4 {
+            bytes[i] = self.memory[addr + i];
+        }
+
+        if let Mode::PostOffset(r_ofst) = mode {
+            let addr = self.get(rd) + self.get(&r_ofst);
+            self.save(rd, &addr);
+        }
+
+        u32::from_be_bytes(bytes)
     }
 
     /// Yield a value in a register from the program. This passes the value to the yield callback
