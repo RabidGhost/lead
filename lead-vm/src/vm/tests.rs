@@ -3,11 +3,13 @@ use std::sync::mpsc::channel;
 use super::*;
 use crate::air::Instruction;
 
+const NO_FLAGS: VMFlags = VMFlags::none();
+
 #[test]
 fn r#yield() {
     let instructions = vec![Instruction::CON(Reg(0), 5), Instruction::YLD(Reg(0))];
     let (sndr, recvr) = channel();
-    let mut vm = Machine::new(instructions, sndr);
+    let mut vm = Machine::new(instructions, sndr, NO_FLAGS);
     vm.run();
     assert_eq!(Ok(Message::Yield(5)), recvr.recv())
 }
@@ -23,7 +25,7 @@ fn branch_simple() {
         Instruction::YLD(Reg(0)),
     ];
     let (sndr, recvr) = channel();
-    let mut vm = Machine::new(instructions, sndr);
+    let mut vm = Machine::new(instructions, sndr, NO_FLAGS);
     vm.run();
     assert_eq!(Ok(Message::Yield(17)), recvr.recv())
 }
@@ -39,12 +41,10 @@ fn store_and_load() {
         Instruction::YLD(Reg(2)),                     // yield r2
     ];
 
-    let memory: Vec<u8> = vec![0, 0, 0, 0];
-
     let (sndr, recvr) = channel();
-    let mut vm = Machine::with_memory(instructions, sndr, memory);
+    let mut vm = Machine::new(instructions, sndr, NO_FLAGS);
     vm.run();
 
-    assert_eq!(vm.memory, vec![0xde, 0xad, 0xbe, 0xef]);
+    assert_eq!(vm.memory[0..4], vec![0xde, 0xad, 0xbe, 0xef]);
     assert_eq!(Ok(Message::Yield(0xdeadbeef)), recvr.recv())
 }

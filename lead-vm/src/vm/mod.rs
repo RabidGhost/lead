@@ -5,6 +5,20 @@ use std::sync::mpsc::Sender;
 #[cfg(test)]
 mod tests;
 
+pub const DEFAULT_MEMORY_SIZE: usize = 256;
+
+pub struct VMFlags {
+    pub memory_size: usize,
+}
+
+impl VMFlags {
+    pub const fn none() -> Self {
+        Self {
+            memory_size: DEFAULT_MEMORY_SIZE,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Message {
     Yield(u32),
@@ -22,10 +36,14 @@ pub struct Machine {
 }
 
 impl Machine {
-    pub fn new(instructions: Vec<Instruction>, yield_sender: Sender<Message>) -> Self {
+    pub fn new(
+        instructions: Vec<Instruction>,
+        yield_sender: Sender<Message>,
+        flags: VMFlags,
+    ) -> Self {
         Self {
             instructions,
-            memory: Vec::with_capacity(64),
+            memory: vec![0; flags.memory_size],
             registers: HashMap::new(),
             yield_callback: yield_sender,
             pc: 0,
@@ -37,7 +55,10 @@ impl Machine {
         instructions: Vec<Instruction>,
         yield_sender: Sender<Message>,
         memory: Vec<u8>,
+        flags: VMFlags,
     ) -> Self {
+        let mut mem = vec![0; flags.memory_size];
+        let memory = mem.splice(0..memory.len(), memory).collect();
         Self {
             instructions,
             memory,
