@@ -8,7 +8,7 @@ use crate::{
         Application, Expression, If, Let, Literal, Mutate, OperatorType, Statement, While,
     },
 };
-use lead_vm::air::{Flag, Instruction, Reg};
+use lead_vm::air::{Flag, Instruction, Mode, Reg};
 use segment::Segment;
 
 mod segment;
@@ -18,6 +18,8 @@ mod segment;
 pub struct GenerationState {
     next_reg: Reg,
     variables: HashMap<String, Reg>,
+    /// the address of the next place in memory to store arrays and strings.
+    next_mem_addr: usize,
 }
 
 impl GenerationState {
@@ -25,6 +27,7 @@ impl GenerationState {
         Self {
             next_reg: Reg(0),
             variables: HashMap::new(),
+            next_mem_addr: 0,
         }
     }
 
@@ -32,6 +35,12 @@ impl GenerationState {
         let reg = self.next_reg;
         (*self.next_reg) += 1;
         reg
+    }
+
+    fn next_mem_addr(&mut self) -> usize {
+        let addr = self.next_mem_addr;
+        self.next_mem_addr += 4; // the current word size in bytes
+        addr
     }
 
     /// initialise a variable in the program. Returns the register it was allocated to
@@ -176,16 +185,41 @@ impl Lowerable for Expression {
                 Ok(block)
             }
             Expression::Array {
-                elements: _,
-                span: _,
+                elements: array_elements,
+                span,
             } => {
-                unimplemented!("no air impementaion for arrays exists yet")
+                let mut array_initialisation = Segment::empty_block();
+                let reg_index = state.next_register();
+                let offset = state.next_register();
+                array_initialisation.append_inst(
+                    Instruction::CON(reg_index, state.next_mem_addr() as u32),
+                    *span,
+                );
+                array_initialisation.append_inst(Instruction::CON(offset, 4), *span);
+                // let mut index = 0;
+
+                for element in array_elements {
+                    let val: Segment = element.lower(state)?;
+                    array_initialisation.append_segment(val);
+                    array_initialisation.append_inst(
+                        Instruction::STR(
+                            array_initialisation.output_register().unwrap(),
+                            reg_index,
+                            Mode::PostOffset(offset),
+                        ),
+                        *span,
+                    )
+                }
+
+                Ok(array_initialisation)
             }
             Expression::Index {
-                variable: _,
-                index: _,
+                variable: var,
+                index: index_expr,
                 span: _,
-            } => unimplemented!("no air impementaion for array indexing exists yet"),
+            } => {
+                unimplemented!("no air impementaion for array indexing exists yet");
+            }
         }
     }
 }
