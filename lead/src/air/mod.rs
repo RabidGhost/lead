@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::remove_file};
 use uuid::Uuid;
 
 use crate::{
@@ -14,11 +14,16 @@ use segment::Segment;
 
 mod segment;
 
+/// Word size in bytes. This does not modify behavior program wide
+const WORD_SIZE: usize = 4;
+
 // temp pub struct
 #[derive(Debug)]
 pub struct GenerationState {
     next_reg: Reg,
     variables: HashMap<String, Reg>,
+    /// The variable pointers in a program.
+    pointers: HashMap<String, usize>,
     /// the address of the next place in memory to store arrays and strings.
     next_mem_addr: usize,
 }
@@ -28,6 +33,7 @@ impl GenerationState {
         Self {
             next_reg: Reg(0),
             variables: HashMap::new(),
+            pointers: HashMap::new(),
             next_mem_addr: 0,
         }
     }
@@ -49,6 +55,11 @@ impl GenerationState {
         self.variables.insert(variable, register);
     }
 
+    /// initialise a pointer to a variable in the program.
+    fn initialise_pointer(&mut self, variable: String, pointer: usize) {
+        self.pointers.insert(variable, pointer);
+    }
+
     /// checks if a variable is already initialised
     fn variable_exists(&mut self, variable: String) -> bool {
         self.variables.contains_key(&variable)
@@ -63,6 +74,17 @@ impl GenerationState {
             Some(reg) => Ok(reg),
             None => Err(LangError::from(
                 format!("uninitialised variable `{}`", variable),
+                span,
+                ERROR_UNINITIALISED_VARIABLE,
+            )),
+        }
+    }
+
+    fn deref_pointer(&self, variable: &String, span: impl Spans) -> Result<usize, LangError> {
+        match self.pointers.get(variable) {
+            Some(pointer) => Ok(*pointer),
+            None => Err(LangError::from(
+                format!("uninitialised pointer to variable `{}`", variable),
                 span,
                 ERROR_UNINITIALISED_VARIABLE,
             )),
@@ -189,7 +211,7 @@ impl Lowerable for Expression {
                     Instruction::CON(reg_index, state.next_mem_addr() as u32),
                     *span,
                 );
-                array_initialisation.append_inst(Instruction::CON(offset, 4), *span);
+                array_initialisation.append_inst(Instruction::CON(offset, WORD_SIZE as u32), *span);
                 // let mut index = 0;
 
                 for element in array_elements {
@@ -211,11 +233,37 @@ impl Lowerable for Expression {
                 Ok(array_initialisation)
             }
             Expression::Index {
-                variable: var,
+                variable,
                 index: index_expr,
-                span: _,
+                span,
             } => {
-                unimplemented!("no air impementaion for array indexing exists yet");
+                let base_addr = state.deref_pointer(variable.borrow_name(), span)?;
+                let r_base_addr = state.next_register();
+                let mut block: Segment = Segment::subprogram_from_inst(
+                    Instruction::CON(r_base_addr, base_addr as u32),
+                    *span,
+                );
+
+                block.append_segment(index_expr.lower(state)?);
+                let r_index_output = block.output_register().unwrap();
+                let r_word_size = state.next_register();
+                block.append_inst(
+                    Instruction::CON(r_word_size, WORD_SIZE as u32),
+                    index_expr.span(),
+                );
+                let r_index = state.next_register();
+                block.append_inst(
+                    Instruction::MUL(r_index, r_index_output, r_word_size),
+                    index_expr.span(),
+                );
+
+                block.append_inst_as_block(
+                    Instruction::LDR(state.next_register(), r_base_addr, Mode::Offset(r_index)),
+                    *span,
+                );
+
+                // unimplemented!("no air impementaion for array indexing exists yet");
+                Ok(block)
             }
         }
     }
@@ -324,20 +372,32 @@ impl Lowerable for While {
 
 impl Lowerable for Let {
     fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
-        let block: Segment = self.value.lower(state)?;
-
-        match block.output_register() {
-            // this doesn't require an instruction
-            Some(reg) => state.initialise_variable(self.variable.clone(), reg),
-            None => {
-                return Err(LangError::from(
-                    "let statement expression evaluates to nothing".to_owned(),
-                    self.value.span(),
-                    ERROR_NULL_VARIABLE_EXPRESSION,
-                ))
+        Ok(match self.value {
+            Expression::Array {
+                elements: _,
+                span: _,
+            } => {
+                let base_mem_addr = state.next_mem_addr; // this doesnt increment the address unlike the method call
+                state.initialise_pointer(self.variable.clone(), base_mem_addr);
+                self.value.lower(state)?
             }
-        }
-        Ok(block)
+            _ => {
+                let block: Segment = self.value.lower(state)?;
+
+                match block.output_register() {
+                    // this doesn't require an instruction
+                    Some(reg) => state.initialise_variable(self.variable.clone(), reg),
+                    None => {
+                        return Err(LangError::from(
+                            "let statement expression evaluates to nothing".to_owned(),
+                            self.value.span(),
+                            ERROR_NULL_VARIABLE_EXPRESSION,
+                        ))
+                    }
+                }
+                block
+            }
+        })
     }
 }
 

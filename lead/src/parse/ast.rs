@@ -30,7 +30,7 @@ pub enum Expression {
         span: Span,
     },
     Index {
-        variable: Box<Expression>,
+        variable: Identifier,
         index: Box<Expression>,
         span: Span,
     },

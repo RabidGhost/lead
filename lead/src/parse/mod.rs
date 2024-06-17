@@ -256,10 +256,7 @@ impl<'i> LangParser<'i> {
             }
             // identifier or array index
             TokenType::Identifier(name) => {
-                let identifier = Expression::Identifier(Identifier::new(
-                    (*name).clone(),
-                    self.advance_one().unwrap(),
-                ));
+                let identifier = Identifier::new((*name).clone(), self.advance_one().unwrap());
                 match self.peek_one()?.token_type() {
                     TokenType::LeftSquare => {
                         self.consume(TokenType::LeftSquare)?;
@@ -267,12 +264,12 @@ impl<'i> LangParser<'i> {
                         let span =
                             Span::superspan(&identifier, self.consume(TokenType::RightSquare)?);
                         Expression::Index {
-                            variable: Box::new(identifier),
+                            variable: identifier,
                             index,
                             span,
                         }
                     }
-                    _ => identifier,
+                    _ => Expression::Identifier(identifier),
                 }
             }
             TokenType::LeftSquare => self.parse_array()?,
