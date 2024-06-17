@@ -5,7 +5,8 @@ use crate::{
     error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
     lex::span::Spans,
     parse::ast::{
-        Application, Expression, If, Let, Literal, Mutate, OperatorType, Statement, While,
+        Application, Expression, Identifier, If, Let, Literal, Mutate, OperatorType, Statement,
+        While,
     },
 };
 use lead_vm::air::{Flag, Instruction, Mode, Reg};
@@ -176,14 +177,7 @@ impl Lowerable for Expression {
             Expression::Literal { lit } => lit.lower(state),
             Expression::App { app } => app.lower(state),
             Expression::Group { expr, span: _ } => expr.lower(state),
-            Expression::Identifier { id, span } => {
-                // set the output register to be the variable register, and give back a block with no instructions
-                let variable_register = state.variable_register(&id, self)?;
-                let mut block = Segment::empty_block();
-                block.set_span(*span);
-                block.set_output_register(variable_register.to_owned());
-                Ok(block)
-            }
+            Expression::Identifier(identifier) => identifier.lower(state),
             Expression::Array {
                 elements: array_elements,
                 span,
@@ -210,6 +204,9 @@ impl Lowerable for Expression {
                         *span,
                     )
                 }
+
+                // should store the base address of the array in the register of the variable.
+                // this might mean moving array intialisation to a statement.
 
                 Ok(array_initialisation)
             }
@@ -366,6 +363,17 @@ impl Lowerable for Mutate {
             }
         }
 
+        Ok(block)
+    }
+}
+
+impl Lowerable for Identifier {
+    fn lower(&self, state: &mut GenerationState) -> Result<Segment, LangError> {
+        // set the output register to be the variable register, and give back a block with no instructions
+        let variable_register = state.variable_register(self.borrow_name(), self)?;
+        let mut block = Segment::empty_block();
+        block.set_span(self.span());
+        block.set_output_register(variable_register.to_owned());
         Ok(block)
     }
 }

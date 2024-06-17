@@ -10,7 +10,7 @@ use crate::{
 };
 
 use self::ast::{
-    Application, Expression, If, Let, Literal, Mutate, OperatorType, Statement, While,
+    Application, Expression, Identifier, If, Let, Literal, Mutate, OperatorType, Statement, While,
 };
 
 pub mod ast;
@@ -256,10 +256,10 @@ impl<'i> LangParser<'i> {
             }
             // identifier or array index
             TokenType::Identifier(name) => {
-                let identifier = Expression::Identifier {
-                    id: (*name).clone(),
-                    span: self.advance_one().unwrap().span(),
-                };
+                let identifier = Expression::Identifier(Identifier::new(
+                    (*name).clone(),
+                    self.advance_one().unwrap(),
+                ));
                 match self.peek_one()?.token_type() {
                     TokenType::LeftSquare => {
                         self.consume(TokenType::LeftSquare)?;

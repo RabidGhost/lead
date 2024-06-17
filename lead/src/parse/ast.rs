@@ -24,10 +24,7 @@ pub enum Expression {
     Literal {
         lit: Literal,
     },
-    Identifier {
-        id: String,
-        span: Span,
-    },
+    Identifier(Identifier),
     Array {
         elements: Vec<Box<Expression>>,
         span: Span,
@@ -37,6 +34,35 @@ pub enum Expression {
         index: Box<Expression>,
         span: Span,
     },
+}
+
+#[derive(Debug)]
+pub struct Identifier {
+    id: String,
+    span: Span,
+}
+
+impl Identifier {
+    pub fn new(name: String, span: impl Spans) -> Self {
+        Self {
+            id: name,
+            span: span.span(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.id
+    }
+
+    pub fn borrow_name(&self) -> &String {
+        &self.id
+    }
+}
+
+impl Spans for Identifier {
+    fn span(&self) -> Span {
+        self.span
+    }
 }
 
 #[derive(Debug)]
@@ -125,7 +151,7 @@ impl Spans for Expression {
             Expression::Literal { lit } => lit.span(),
             Expression::Group { expr: _, span } => *span,
             Expression::App { app } => app.span(),
-            Expression::Identifier { id: _, span } => *span,
+            Expression::Identifier(identifier) => identifier.span(),
             Expression::Array { elements: _, span } => *span,
             Expression::Index {
                 variable: _,
@@ -320,13 +346,6 @@ impl While {
             span,
         }
     }
-}
-
-// identifier trait
-
-pub trait Identifier {
-    fn name(&self) -> &str;
-    fn span(&self) -> &str;
 }
 
 // impl display for ast
