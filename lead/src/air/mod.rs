@@ -257,12 +257,13 @@ impl Lowerable for Expression {
                     index_expr.span(),
                 );
 
+                let r_data = state.next_register();
+
                 block.append_inst_as_block(
-                    Instruction::LDR(state.next_register(), r_base_addr, Mode::Offset(r_index)),
+                    Instruction::LDR(r_data, r_base_addr, Mode::Offset(r_index)),
                     *span,
                 );
-
-                // unimplemented!("no air impementaion for array indexing exists yet");
+                block.set_output_register(r_data);
                 Ok(block)
             }
         }

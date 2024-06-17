@@ -51,23 +51,23 @@ impl Machine {
         }
     }
 
-    fn with_memory(
-        instructions: Vec<Instruction>,
-        yield_sender: Sender<Message>,
-        memory: Vec<u8>,
-        flags: VMFlags,
-    ) -> Self {
-        let mut mem = vec![0; flags.memory_size];
-        let memory = mem.splice(0..memory.len(), memory).collect();
-        Self {
-            instructions,
-            memory,
-            registers: HashMap::new(),
-            yield_callback: yield_sender,
-            pc: 0,
-            flags: Flags::empty(),
-        }
-    }
+    // fn with_memory(
+    //     instructions: Vec<Instruction>,
+    //     yield_sender: Sender<Message>,
+    //     memory: Vec<u8>,
+    //     flags: VMFlags,
+    // ) -> Self {
+    //     let mut mem = vec![0; flags.memory_size];
+    //     let memory = mem.splice(0..memory.len(), memory).collect();
+    //     Self {
+    //         instructions,
+    //         memory,
+    //         registers: HashMap::new(),
+    //         yield_callback: yield_sender,
+    //         pc: 0,
+    //         flags: Flags::empty(),
+    //     }
+    // }
 
     pub fn run(&mut self) {
         while self.step() {}
