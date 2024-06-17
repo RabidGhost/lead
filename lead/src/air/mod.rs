@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::remove_file};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{

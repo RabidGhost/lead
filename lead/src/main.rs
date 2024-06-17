@@ -1,10 +1,10 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{ArgGroup, Args, Parser, Subcommand};
 use lead_vm::{air::Instruction, vm::DEFAULT_MEMORY_SIZE};
 use lex::{token::Token, token::TokenType};
 use miette::Result;
 use parse::ast::Statement;
 use pipeline::Pipeline;
-use std::path::PathBuf;
+use std::{io::stdin, path::PathBuf};
 
 mod air;
 mod error;
@@ -22,7 +22,7 @@ struct Cli {
 
 #[derive(Subcommand, Clone)]
 enum Commands {
-    /// run in the interpreter from a file
+    /// run in the interpreter
     Run(RunArgs),
     //     file: PathBuf,
     //     args: RunArgs,
@@ -40,8 +40,15 @@ enum Commands {
 }
 
 #[derive(Args, Clone)]
+#[clap(group(
+            ArgGroup::new("input")
+                .required(true)
+                .args(&["file", "stdin"]),
+        ))]
 struct RunArgs {
-    file: PathBuf,
+    file: Option<PathBuf>,
+    #[clap(long)]
+    stdin: bool,
     /// memory size of the virtual machine in bytes
     #[arg(default_value_t = DEFAULT_MEMORY_SIZE)]
     #[clap(short)]
@@ -52,7 +59,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Run(args) => run(args.file.clone(), args)?,
+        Commands::Run(args) => run(args)?,
         Commands::Build { file } => build(file)?,
         Commands::Lex { file } => lex(file)?,
         Commands::Parse { file } => parse(file)?,
@@ -93,13 +100,20 @@ fn parse(file: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn run(file: PathBuf, args: RunArgs) -> Result<()> {
-    Pipeline::try_from(file)?
-        .with_run_args(args)?
-        .lex()?
-        .parse()?
-        .build()?
-        .run()
+fn run(args: RunArgs) -> Result<()> {
+    match args.stdin {
+        true => Pipeline::try_from(&mut stdin())?,
+        false => Pipeline::try_from(
+            args.file
+                .clone()
+                .expect("stdin and file should be mutally exclusive"),
+        )?,
+    }
+    .with_run_args(args)?
+    .lex()?
+    .parse()?
+    .build()?
+    .run()
 }
 
 fn build(file: PathBuf) -> Result<()> {

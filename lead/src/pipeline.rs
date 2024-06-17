@@ -10,7 +10,13 @@ use lead_vm::{
     vm::{Machine, Message, VMFlags},
 };
 use miette::{Diagnostic, Result};
-use std::{fs::read_to_string, path::PathBuf, sync::mpsc::channel, thread};
+use std::{
+    fs::read_to_string,
+    io::{Read, Stdin},
+    path::PathBuf,
+    sync::mpsc::channel,
+    thread,
+};
 use thiserror::Error;
 
 impl Into<VMFlags> for RunArgs {
@@ -62,6 +68,10 @@ pub enum PipelineError {
         0
     )]
     InvalidWithArgs(String),
+    #[error("Invalid utf8 in stream")]
+    InvalidUTF8Input,
+    #[error("Error reading from stdin: {}", 0)]
+    ErrorReadFromStdin(String),
 }
 
 impl Pipeline {
@@ -167,6 +177,18 @@ impl TryFrom<PathBuf> for Pipeline {
                 .map_err(|e| PipelineError::ReadError(format!("{:?}", e)))?,
             None,
         ))
+    }
+}
+
+impl TryFrom<&mut Stdin> for Pipeline {
+    type Error = PipelineError;
+    fn try_from(value: &mut Stdin) -> std::result::Result<Self, Self::Error> {
+        let mut buf: Vec<u8> = Vec::new();
+        value
+            .read_to_end(&mut buf)
+            .map_err(|err| PipelineError::ErrorReadFromStdin(format!("{err}")))?;
+        let input: String = String::from_utf8(buf).map_err(|_| PipelineError::InvalidUTF8Input)?;
+        Ok(Pipeline::Text(input, None))
     }
 }
 
