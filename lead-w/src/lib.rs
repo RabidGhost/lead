@@ -4,17 +4,16 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn build_from_string(string: String) -> String {
-    let instructions: Vec<Instruction> = Pipeline::Text(string, None)
-        .lex()
-        .map_err(|err| return err.to_string())
-        .unwrap()
-        .parse()
-        .map_err(|err| return err.to_string())
-        .unwrap()
-        .build()
-        .map_err(|err| return err.to_string())
-        .unwrap()
-        .into();
+    let instructions: Vec<Instruction> = match Pipeline::Text(string, None).lex() {
+        Err(err) => return err.to_string(),
+        Ok(pipeline) => match pipeline.parse() {
+            Err(err) => return err.to_string(),
+            Ok(pipeline) => match pipeline.build() {
+                Err(err) => return err.to_string(),
+                Ok(pipeline) => pipeline.into(),
+            },
+        },
+    };
 
     let mut buf: String = String::new();
 
