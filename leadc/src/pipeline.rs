@@ -1,9 +1,10 @@
-use crate::{
+use lead::{
     air::{generate_program, GenerationState},
     lex::{token::Token, Lexer},
     parse::{ast::Statement, LangParser},
-    RunArgs,
 };
+
+use crate::cli::RunArgs;
 
 use lead_vm::{
     air::Instruction,

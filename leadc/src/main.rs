@@ -1,59 +1,11 @@
-use clap::{ArgGroup, Args, Parser, Subcommand};
-use lead_vm::{air::Instruction, vm::DEFAULT_MEMORY_SIZE};
-use lex::{token::Token, token::TokenType};
+use clap::Parser;
+use lead::lex::{token::Token, token::TokenType};
+use lead::parse::ast::Statement;
+use lead_vm::air::Instruction;
+use leadc::cli::{Cli, Commands, RunArgs};
+use leadc::pipeline::Pipeline;
 use miette::Result;
-use parse::ast::Statement;
-use pipeline::Pipeline;
 use std::{io::stdin, path::PathBuf};
-
-mod air;
-mod error;
-mod lex;
-mod parse;
-/// The compiler pipeline, from front to back.
-mod pipeline;
-
-#[derive(Parser)]
-#[command(about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand, Clone)]
-enum Commands {
-    /// run in the interpreter
-    Run(RunArgs),
-    //     file: PathBuf,
-    //     args: RunArgs,
-    // },
-    Build {
-        file: PathBuf,
-    },
-    Lex {
-        file: PathBuf,
-    },
-    Parse {
-        file: PathBuf,
-    },
-    Repl,
-}
-
-#[derive(Args, Clone)]
-#[clap(group(
-            ArgGroup::new("input")
-                .required(true)
-                .args(&["file", "stdin"]),
-        ))]
-struct RunArgs {
-    file: Option<PathBuf>,
-    #[clap(long)]
-    stdin: bool,
-    /// memory size of the virtual machine in bytes
-    #[arg(default_value_t = DEFAULT_MEMORY_SIZE)]
-    #[clap(short)]
-    memory_size: usize,
-}
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
