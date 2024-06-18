@@ -57,3 +57,15 @@ yield arr[0];
 > 1
 ```
 Directly yielding an array will display the memory address of the array.
+
+
+### How to integrate it with WASM
+1. If you do not already have `wasm-pack` installed, run
+```
+cargo install wasm-pack
+```
+
+2. From `lead-w`, run
+```
+wasm-pack build --target web
+```
