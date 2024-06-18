@@ -5,8 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-lead = { path = "../lead" }
+lead = { path = "../lead", default-features = false }
+leadc = { path = "../leadc", default-features = false }
 lead-vm = { path = "../lead-vm" }
-leadc = { path = "../leadc" }
+thiserror = "1.0.61"
 wasm-bindgen = "0.2.92"
+getrandom = { version = "0.2", features = ["js"] }
