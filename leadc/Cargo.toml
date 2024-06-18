@@ -7,7 +7,11 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.7", features = ["derive"] }
-miette = { version = "7.2.0", features = ["fancy"] }
+miette = { version = "7.2.0" }
 lead-vm = { path = "../lead-vm" }
-lead = { path = "../lead" }
+lead = { path = "../lead", default-features = false }
 thiserror = "1.0.61"
+
+[features]
+default = ["enable-fancy-error"]
+enable-fancy-error = ["miette/fancy", "lead/enable-fancy-error"]
