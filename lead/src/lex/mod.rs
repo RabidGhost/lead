@@ -1,6 +1,7 @@
 pub mod span;
 pub mod token;
 
+use primes::PrimeSet;
 use TSPL::{self, Parser};
 
 use crate::error::{
@@ -32,11 +33,6 @@ impl<'l> Lexer<'l> {
         let mut buf = Vec::new();
         self.lex(&mut buf)?;
         Ok(buf)
-        // match self.lex(&mut buf) {
-        //     Ok(_) => (),
-        //     Err(e) => return Err(vec![e]),
-        // }
-        // return Ok(buf);
     }
 
     fn lex(&mut self, buf: &mut Vec<Token>) -> Result<(), LangError> {

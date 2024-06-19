@@ -1,12 +1,24 @@
-use std::cmp::{max, min};
-use uuid::Uuid;
+use primes::{PrimeSet, Sieve};
+use std::{
+    cmp::{max, min},
+    sync::{Mutex, OnceLock},
+    usize,
+};
 
 use miette::SourceSpan;
+
+fn get_primes_sieve() -> &'static Mutex<Sieve> {
+    static INSTANCE: OnceLock<Mutex<Sieve>> = OnceLock::new();
+    INSTANCE.get_or_init(|| {
+        let mut p = Sieve::new();
+        Mutex::new(p)
+    })
+}
 
 /// A span of text in the source code of the program. `Span`s are asserted to run from left to right.
 #[derive(Clone, Copy, Ord, PartialOrd)]
 pub struct Span {
-    id: Uuid,
+    id: u64,
     span: (usize, usize),
 }
 
@@ -39,14 +51,43 @@ impl Span {
     pub fn new(span: (usize, usize)) -> Self {
         assert!(span.0 <= span.1);
         Self {
-            id: Uuid::new_v4(),
+            id: get_primes_sieve()
+                .lock()
+                .unwrap()
+                .generator()
+                .next()
+                .unwrap(),
             span,
         }
     }
 
+    pub fn with_id(span: (usize, usize), id: u64) -> Self {
+        assert!(span.0 <= span.1);
+        Self { id, span }
+    }
+
     /// Join two `Span`s, leaving the spans unchanged, and return a new `Span` containing them.
     pub fn superspan(a: impl Spans, b: impl Spans) -> Self {
-        Span::new(join_spans(a.span().span, b.span().span))
+        Span::with_id(
+            join_spans(a.span().span, b.span().span),
+            a.span().id * b.span().id,
+        )
+    }
+
+    pub fn together<const N: usize>(spans: [impl Spans; N]) -> Self {
+        assert!(N > 0);
+        let low_bound: usize = spans
+            .iter()
+            .fold(spans[0].span().span.0, |x, y| min(x, y.span().span.0));
+        let high_bound: usize = spans
+            .iter()
+            .fold(spans[0].span().span.1, |x, y| max(x, y.span().span.1));
+        let id: u64 = spans.iter().map(|x| x.span().id).product();
+
+        Self {
+            span: (low_bound, high_bound),
+            id,
+        }
     }
 
     /// Mutably extend the bounds of the span, to contain `other`.
@@ -71,6 +112,15 @@ impl Span {
 
     pub fn span(&self) -> (usize, usize) {
         self.span
+    }
+
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    /// Get the id's of Spans this Span was generated from, based on the prime factors of the Spans id.
+    pub fn composing_ids(&self) -> Vec<u64> {
+        primes::factors_uniq(self.id)
     }
 }
 

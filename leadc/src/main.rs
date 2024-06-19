@@ -15,6 +15,10 @@ fn main() -> Result<()> {
         Commands::Build { file } => build(file)?,
         Commands::Lex { file } => lex(file)?,
         Commands::Parse { file } => parse(file)?,
+
+        #[cfg(debug_assertions)]
+        Commands::Test { file } => test(file)?,
+
         _ => todo!("implement repl"),
     }
     Ok(())
@@ -73,6 +77,16 @@ fn build(file: PathBuf) -> Result<()> {
 
     for instruction in air {
         print!("{instruction}");
+    }
+    Ok(())
+}
+
+#[cfg(debug_assertions)]
+fn test(file: PathBuf) -> Result<()> {
+    let tokens: Vec<Token> = Pipeline::try_from(file)?.lex()?.into();
+
+    for tok in tokens {
+        println!("{tok} : {}", tok.span().id())
     }
     Ok(())
 }

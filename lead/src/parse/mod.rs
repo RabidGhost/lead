@@ -4,7 +4,7 @@ use crate::{
         ERROR_UNEXPECTED_END_OF_FILE, ERROR_UNEXPECTED_TOKEN, ERROR_UNMATCHED_DELIMITER,
     },
     lex::{
-        span::Span,
+        span::{Span, Spans},
         token::{Token, TokenType},
     },
 };
@@ -163,22 +163,25 @@ impl<'i> LangParser<'i> {
     }
 
     pub fn parse_wif(&mut self) -> Result<Statement, LangError> {
-        let start = self.index;
-        let ty = self.advance_one().unwrap().token_type();
-        //self.consume(TokenType::If)?;
+        let start = self.advance_one().unwrap();
+        let ty = start.token_type();
+
         let condition = self.parse_expr()?;
-        self.consume(TokenType::LeftBrace)?;
+
+        let lb_span = self.consume(TokenType::LeftBrace)?.span();
 
         let body: Vec<Statement> = self.parse_statement(Vec::new())?;
-        self.consume(TokenType::RightBrace)?;
+
+        let span = Span::together([
+            start.span(),
+            condition.span(),
+            lb_span,
+            self.consume(TokenType::RightBrace)?.span(),
+        ]);
 
         Ok(match ty {
-            TokenType::If => {
-                Statement::If(If::from(condition, body, Span::new((start, self.index))))
-            }
-            TokenType::While => {
-                Statement::While(While::from(condition, body, Span::new((start, self.index))))
-            }
+            TokenType::If => Statement::If(If::from(condition, body, span)),
+            TokenType::While => Statement::While(While::from(condition, body, span)),
             _ => {
                 unreachable!()
             }

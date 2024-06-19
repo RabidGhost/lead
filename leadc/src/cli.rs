@@ -26,6 +26,10 @@ pub enum Commands {
         file: PathBuf,
     },
     Repl,
+    #[cfg(debug_assertions)]
+    Test {
+        file: PathBuf,
+    },
 }
 
 #[derive(Args, Clone)]
