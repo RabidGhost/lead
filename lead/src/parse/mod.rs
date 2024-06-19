@@ -211,7 +211,7 @@ impl<'i> LangParser<'i> {
     pub fn parse_expr(&mut self) -> Result<Expression, LangError> {
         if self.is_eof() {
             return Err(LangError::UnexpectedEndOfFile {
-                span: Span::new((self.index, self.index)),
+                span: Span::new((self.index - 1, self.index)),
                 expected: "expression".to_owned(),
                 found: None,
             });

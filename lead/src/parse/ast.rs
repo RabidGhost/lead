@@ -1,10 +1,5 @@
-use crate::{
-    error::LangError,
-    lex::{
-        span::{Span, Spans},
-        token::Token,
-    },
-};
+use crate::error::LangError;
+use crate::lex::{span::*, token::Token};
 
 type Statements = Vec<Statement>;
 
@@ -97,6 +92,12 @@ pub struct Let {
     span: Span,
 }
 
+impl Spans for Let {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
 #[derive(Debug)]
 pub struct If {
     pub condition: Expression,
@@ -111,6 +112,12 @@ pub struct While {
     span: Span,
 }
 
+impl Spans for While {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
 #[derive(Debug)]
 pub enum Statement {
     Let(Let),
@@ -119,6 +126,19 @@ pub enum Statement {
     If(If),
     While(While),
     Yield(Expression),
+}
+
+impl Spans for Statement {
+    fn span(&self) -> Span {
+        match self {
+            Self::Let(r#let) => r#let.span(),
+            Self::Mutate(mutate) => mutate.span(),
+            Self::Expr(expr) => expr.span(),
+            Self::If(r#if) => r#if.span(),
+            Self::While(r#while) => r#while.span(),
+            Self::Yield(r#yield) => r#yield.span(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

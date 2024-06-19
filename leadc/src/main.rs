@@ -1,5 +1,5 @@
 use clap::Parser;
-use lead::lex::{token::Token, token::TokenType};
+use lead::lex::{span::Spans, token::Token, token::TokenType};
 use lead::parse::ast::Statement;
 use lead_vm::air::Instruction;
 use leadc::cli::{Cli, Commands, RunArgs};
@@ -83,10 +83,10 @@ fn build(file: PathBuf) -> Result<()> {
 
 #[cfg(debug_assertions)]
 fn test(file: PathBuf) -> Result<()> {
-    let tokens: Vec<Token> = Pipeline::try_from(file)?.lex()?.into();
+    let statements: Vec<Statement> = Pipeline::try_from(file)?.lex()?.parse()?.into();
 
-    for tok in tokens {
-        println!("{tok} : {}", tok.span().id())
+    for statement in statements {
+        println!("{statement:?} : {:?}", statement.span().composing_ids())
     }
     Ok(())
 }
