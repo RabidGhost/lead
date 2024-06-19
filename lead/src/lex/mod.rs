@@ -1,13 +1,10 @@
 pub mod span;
 pub mod token;
 
-use primes::PrimeSet;
-use TSPL::{self, Parser};
-
-use crate::error::{
-    LangError, ERROR_INVALID_CHARACTER_LITERAL, ERROR_INVALID_LEXEME, ERROR_INVALID_NUMBER_LITERAL,
-};
+use crate::error::LangError;
+use span::Span;
 use token::{Token, TokenType, KEYWORDS};
+use TSPL::{self, Parser};
 
 pub struct Lexer<'l> {
     src: &'l str,
@@ -71,12 +68,11 @@ impl<'l> Lexer<'l> {
             '\'' => {
                 let ch = match self.parse_quoted_char() {
                     Ok(ch) => ch,
-                    Err(e) => {
-                        return Err(LangError::from(
-                            e,
-                            (start, self.index),
-                            ERROR_INVALID_CHARACTER_LITERAL,
-                        ))
+                    Err(_) => {
+                        return Err(LangError::InvalidCharacterLiteral {
+                            span: Span::new((start, self.index)),
+                            char_literal: self.input()[start..self.index].to_owned(),
+                        });
                     }
                 };
                 tok = Token::new(TokenType::Char(ch), self.index, self.index - start);
@@ -85,14 +81,10 @@ impl<'l> Lexer<'l> {
                 match self.parse_u64() {
                     Ok(n) => tok = Token::from_num(n, start, self.index),
                     Err(_) => {
-                        return Err(LangError::from(
-                            format!(
-                                "expected number literal, found `{}`",
-                                self.input()[start..self.index].to_owned()
-                            ),
-                            (start, self.index),
-                            ERROR_INVALID_NUMBER_LITERAL,
-                        ))
+                        return Err(LangError::InvalidIntegerLiteral {
+                            span: Span::new((start, self.index)),
+                            num_literal: self.input()[start..self.index].to_owned(),
+                        });
                     }
                 };
             }
@@ -106,11 +98,10 @@ impl<'l> Lexer<'l> {
                 }
             }
             ch => {
-                return Err(LangError::from(
-                    format!("unknown lexeme `{}`", ch),
-                    (start, start + 1),
-                    ERROR_INVALID_LEXEME,
-                ))
+                return Err(LangError::InvalidLexeme {
+                    span: Span::new((start, start + 1)),
+                    lexeme: ch.to_string(),
+                });
             }
         }
 

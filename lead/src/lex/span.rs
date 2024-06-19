@@ -10,7 +10,7 @@ use miette::SourceSpan;
 fn get_primes_sieve() -> &'static Mutex<Sieve> {
     static INSTANCE: OnceLock<Mutex<Sieve>> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        let mut p = Sieve::new();
+        let p = Sieve::new();
         Mutex::new(p)
     })
 }

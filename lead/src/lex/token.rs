@@ -1,5 +1,5 @@
 use super::span::{Span, Spans};
-use crate::error::{LangError, ERROR_INVALID_KEYWORD, ERROR_INVALID_LEXEME};
+use crate::error::LangError;
 
 pub const KEYWORDS: [&'static str; 7] = ["true", "false", "let", "if", "for", "while", "yield"];
 
@@ -66,6 +66,10 @@ impl Token {
         &self.token_type
     }
 
+    pub fn ty(&self) -> TokenType {
+        self.token_type.clone()
+    }
+
     pub fn span(&self) -> Span {
         self.span
     }
@@ -95,11 +99,10 @@ impl Token {
             ":=" => TokenType::Assign,
             "/" => TokenType::Slash,
             _ => {
-                return Err(LangError::from(
-                    format!("invalid lexeme `{string}`"),
-                    (start, start + string.len()),
-                    ERROR_INVALID_LEXEME,
-                ))
+                return Err(LangError::InvalidLexeme {
+                    span: Span::new((start, start + string.len())),
+                    lexeme: string.to_owned(),
+                });
             }
         };
 
@@ -128,31 +131,21 @@ impl Token {
     }
 
     pub fn from_keyword(string: &str, start: usize) -> Result<Self, LangError> {
-        if !KEYWORDS.contains(&string) {
-            Err(LangError::from(
-                format!(
-                    "invalid keyword `{}`, this error should be impossible",
-                    string
-                ),
-                Span::new((start, start + string.len())),
-                ERROR_INVALID_KEYWORD,
-            ))
-        } else {
-            let ty: TokenType = match string {
-                "true" => return Ok(Token::from_bool(true, start)),
-                "false" => return Ok(Token::from_bool(false, start)),
-                "if" => TokenType::If,
-                "let" => TokenType::Let,
-                "for" => TokenType::For,
-                "while" => TokenType::While,
-                "yield" => TokenType::Yield,
-                _ => unreachable!(),
-            };
-            Ok(Self {
-                token_type: ty,
-                span: Span::new((start, start + string.len())),
-            })
-        }
+        // there was an error here but it should have been unreachable. Hence it has been removed
+        let ty: TokenType = match string {
+            "true" => return Ok(Token::from_bool(true, start)),
+            "false" => return Ok(Token::from_bool(false, start)),
+            "if" => TokenType::If,
+            "let" => TokenType::Let,
+            "for" => TokenType::For,
+            "while" => TokenType::While,
+            "yield" => TokenType::Yield,
+            _ => unreachable!(),
+        };
+        Ok(Self {
+            token_type: ty,
+            span: Span::new((start, start + string.len())),
+        })
     }
 }
 
@@ -165,5 +158,58 @@ impl Spans for Token {
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.token_type)
+    }
+}
+
+// display the token as close to source representation as possible
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                // Single char Tokens
+                TokenType::LeftParen => "(",
+                TokenType::RightParen => ")",
+                TokenType::LeftBrace => "{",
+                TokenType::RightBrace => "}",
+                TokenType::LeftSquare => "[",
+                TokenType::RightSquare => "]",
+                TokenType::Comma => ",",
+                TokenType::Dot => ".",
+                TokenType::Minus => "-",
+                TokenType::Plus => "+",
+                TokenType::Slash => "/",
+                TokenType::Star => "*",
+                TokenType::Semicolon => ";",
+
+                // One or two char Tokens
+                TokenType::LessThan => "<",
+                TokenType::GreaterThan => ">",
+                TokenType::LessThanEq => "<=",
+                TokenType::GreaterThanEq => ">=",
+                TokenType::EqEq => "==",
+                TokenType::Colon => ":",
+                TokenType::Assign => ":=",
+                TokenType::Bang => "!",
+                TokenType::BangEq => "!=",
+
+                // Literals
+                TokenType::Identifier(string) => return write!(f, "{string}"),
+                TokenType::Char(ch) => return write!(f, "{ch}"),
+                TokenType::Number(num) => return write!(f, "{num}"),
+                TokenType::Bool(boolean) => return write!(f, "{boolean}"),
+
+                // Keywords
+                TokenType::Let => "let",
+                TokenType::If => "if",
+                TokenType::For => "for",
+                TokenType::While => "while",
+                TokenType::Yield => "yield",
+
+                // End of file
+                TokenType::EOF => "EOF",
+            }
+        )
     }
 }

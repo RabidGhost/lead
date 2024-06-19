@@ -1,6 +1,9 @@
-use crate::lex::{
-    span::{Span, Spans},
-    token::Token,
+use crate::{
+    error::LangError,
+    lex::{
+        span::{Span, Spans},
+        token::Token,
+    },
 };
 
 type Statements = Vec<Statement>;
@@ -311,20 +314,25 @@ impl Mutate {
 }
 
 impl Let {
-    pub fn from(variable: &Token, value: Expression, start: impl Spans) -> Self {
+    pub fn from(variable: &Token, value: Expression, start: impl Spans) -> Result<Self, LangError> {
         // this function includes a start of the span, as we dont know where the `let` was
         let name = match variable.token_type() {
             crate::lex::token::TokenType::Identifier(name) => name.clone(),
-            _ => panic!("should not be here"),
+            ty => {
+                return Err(LangError::InvalidIdentifier {
+                    span: variable.span(),
+                    id_literal: format!("{ty}"),
+                })
+            }
         };
 
         let span = Span::superspan(&start.span(), &value.span());
 
-        Let {
+        Ok(Let {
             variable: name,
             value,
             span,
-        }
+        })
     }
 }
 

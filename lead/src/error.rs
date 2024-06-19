@@ -1,62 +1,107 @@
-pub const ERROR_INVALID_LEXEME: u32 = 1;
-pub const ERROR_INVALID_CHARACTER_LITERAL: u32 = 2;
-pub const ERROR_INVALID_NUMBER_LITERAL: u32 = 3;
-pub const ERROR_INVALID_KEYWORD: u32 = 4;
-pub const ERROR_INVALID_INDENTIFIER: u32 = 5;
-pub const ERROR_UNEXPECTED_END_OF_STREAM: u32 = 6;
-pub const ERROR_INVALID_LITERAL: u32 = 7;
-pub const ERROR_INVALID_OPERATOR: u32 = 8;
-pub const ERROR_TYPE_MISMATCH: u32 = 9;
-pub const ERROR_UNMATCHED_DELIMITER: u32 = 10;
-pub const ERROR_UNEXPECTED_END_OF_FILE: u32 = 11;
-pub const ERROR_UNKNOWN_VARIABLE: u32 = 12;
-pub const ERROR_EXPECTED: u32 = 13;
-pub const ERROR_UNINITIALISED_VARIABLE: u32 = 14;
-pub const ERROR_NULL_VARIABLE_EXPRESSION: u32 = 15;
-pub const ERROR_UNEXPECTED_TOKEN: u32 = 16;
-
-use crate::lex::span::{Span, Spans};
+use crate::lex::{span::Span, token::TokenType};
 use miette::{Diagnostic, Report};
 use thiserror::Error;
 
-#[derive(Clone, Diagnostic, Error)]
-#[diagnostic()]
-pub struct LangError {
-    number: u32,
-    #[label]
-    span: Span,
-    message: String,
+#[derive(Error, Debug, Diagnostic)]
+pub enum LangError {
+    #[error("unknown lexeme `{lexeme}`")]
+    InvalidLexeme {
+        #[label]
+        span: Span,
+        lexeme: String,
+    },
+    #[error("invalid character literal `{char_literal}`")]
+    InvalidCharacterLiteral {
+        #[label]
+        span: Span,
+        char_literal: String,
+    },
+    #[error("invalid integer literal `{num_literal}`")]
+    InvalidIntegerLiteral {
+        #[label]
+        span: Span,
+        num_literal: String,
+    },
+    #[error("invalid identifier name `{id_literal}`")]
+    #[diagnostic(help("identifiers must begin with a letter, and can contain any other combination of english letters, digits, and underscores"))]
+    InvalidIdentifier {
+        #[label]
+        span: Span,
+        id_literal: String,
+    },
+    #[error(
+        "invalid literal `{invalid_literal}`, expected a boolean, character, or integer literal"
+    )]
+    InvalidLiteral {
+        span: Span,
+        invalid_literal: TokenType,
+    },
+    #[error("`{op}` is not a valid unary operator")]
+    InvalidUnaryOperator {
+        #[label]
+        span: Span,
+        op: TokenType,
+    },
+    #[error("`{op}` is not a valid binary operator")]
+    InvalidBinaryOperator {
+        #[label]
+        span: Span,
+        op: TokenType,
+    },
+    #[error("unmatched delimiter `{expected}`, found `{found}`")]
+    UnmatchedDelimiter {
+        span: Span,
+        expected: TokenType,
+        found: TokenType,
+    },
+    #[error("unexpected end of file, expected `{expected}`{}",
+        match found {
+            None => "".to_owned(),
+            Some(string) => format!(", found `{string}`")
+        })]
+    UnexpectedEndOfFile {
+        #[label]
+        span: Span,
+        expected: String,
+        found: Option<String>,
+    },
+    #[error("uninitialised variable `{name}`")]
+    UninitialisedVariable {
+        #[label]
+        span: Span,
+        name: String,
+    },
+    #[error("uninitialised pointer to variable `{name}`")]
+    UninitialisedPointer {
+        #[label]
+        span: Span,
+        name: String,
+    },
+
+    #[error("unexpected token `{tok}`, expected {expected}")]
+    UnexpectedToken {
+        #[label]
+        span: Span,
+        tok: TokenType,
+        expected: String,
+    },
+
+    #[error("expected `{expected}`, found `{found}`")]
+    ExpectedToken {
+        #[label]
+        span: Span,
+        expected: TokenType,
+        found: TokenType,
+    },
+    #[error("found a null value expression. Expressions must always evaluate to some value")]
+    NullValueExpression {
+        #[label]
+        span: Span,
+    },
 }
 
 impl LangError {
-    pub fn from(message: String, span: impl Spans, number: u32) -> Self {
-        Self {
-            number,
-            span: span.span(),
-            message,
-        }
-    }
-
     pub fn with_src(self, src: String) -> Report {
         <LangError as Into<Report>>::into(self).with_source_code(src)
-    }
-}
-
-impl std::fmt::Debug for LangError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[E{}] {}\n\t from {} to {}",
-            self.number,
-            self.message,
-            self.span.span().0,
-            self.span.span().1
-        )
-    }
-}
-
-impl std::fmt::Display for LangError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
     }
 }

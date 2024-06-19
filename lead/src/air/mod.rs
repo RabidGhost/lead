@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    error::{LangError, ERROR_NULL_VARIABLE_EXPRESSION, ERROR_UNINITIALISED_VARIABLE},
+    error::LangError,
     lex::span::Spans,
     parse::ast::{
         Application, Expression, Identifier, If, Let, Literal, Mutate, OperatorType, Statement,
@@ -72,22 +72,20 @@ impl GenerationState {
     ) -> Result<&Reg, LangError> {
         match self.variables.get(variable) {
             Some(reg) => Ok(reg),
-            None => Err(LangError::from(
-                format!("uninitialised variable `{}`", variable),
-                span,
-                ERROR_UNINITIALISED_VARIABLE,
-            )),
+            None => Err(LangError::UninitialisedVariable {
+                span: span.span(),
+                name: variable.to_owned(),
+            }),
         }
     }
 
     fn deref_pointer(&self, variable: &String, span: impl Spans) -> Result<usize, LangError> {
         match self.pointers.get(variable) {
             Some(pointer) => Ok(*pointer),
-            None => Err(LangError::from(
-                format!("uninitialised pointer to variable `{}`", variable),
-                span,
-                ERROR_UNINITIALISED_VARIABLE,
-            )),
+            None => Err(LangError::UninitialisedPointer {
+                span: span.span(),
+                name: variable.to_owned(),
+            }),
         }
     }
 }
@@ -389,11 +387,9 @@ impl Lowerable for Let {
                     // this doesn't require an instruction
                     Some(reg) => state.initialise_variable(self.variable.clone(), reg),
                     None => {
-                        return Err(LangError::from(
-                            "let statement expression evaluates to nothing".to_owned(),
-                            self.value.span(),
-                            ERROR_NULL_VARIABLE_EXPRESSION,
-                        ))
+                        return Err(LangError::NullValueExpression {
+                            span: self.value.span(),
+                        })
                     }
                 }
                 block
@@ -416,11 +412,9 @@ impl Lowerable for Mutate {
                 );
             }
             None => {
-                return Err(LangError::from(
-                    "let statement expression evaluates to nothing".to_owned(),
-                    self.value.span(),
-                    ERROR_NULL_VARIABLE_EXPRESSION,
-                ))
+                return Err(LangError::NullValueExpression {
+                    span: self.value.span(),
+                })
             }
         }
 
