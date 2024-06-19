@@ -151,13 +151,12 @@ impl Pipeline {
                         Ok(msg) => match msg {
                             Message::Yield(val) => println!("{val}"),
                             Message::Done => {
-                                vm_thread.join();
+                                vm_thread.join().expect("could not join the vm thread");
                                 break;
                             }
                         },
                         Err(e) => {
-                            vm_thread.join();
-                            // vm_thread.join().into()?;
+                            vm_thread.join().expect("could not join the vm threaed");
                             eprintln!("{e}");
                             return Ok(());
                         }
