@@ -120,14 +120,7 @@ impl Pipeline {
                 let air: Vec<Instruction> = generate_program(&mut gen_state, ast)
                     .map_err(|err| err.with_src(src.clone()))?
                     .into_iter()
-                    .flat_map(|segment| {
-                        segment
-                            .clone()
-                            .flatten()
-                            .into_iter()
-                            .map(|x| x.to_owned())
-                            .collect::<Vec<Instruction>>()
-                    })
+                    .flat_map(|block| block.into_iter().map(|inst| inst.instruction()))
                     .collect();
                 Ok(Pipeline::IntermediateRepr(src.clone(), args, air))
             }
