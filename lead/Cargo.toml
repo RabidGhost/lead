@@ -1,5 +1,5 @@
 [package]
-authors = ["Mitchell Browne"]
+authors = ["Mitchell Browne<mitchellbrowne01@gmail.com>"]
 name = "lead"
 version = "0.1.0"
 edition = "2021"
