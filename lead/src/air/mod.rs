@@ -20,8 +20,8 @@ const WORD_SIZE: usize = 4;
 /// A wrapper type on lead-vm::air::Instruction containing aditional span information.
 #[derive(Clone)]
 pub struct Inst {
-    instruction: Instruction,
-    span: Span,
+    pub instruction: Instruction,
+    pub span: Span,
 }
 
 impl Inst {
@@ -38,6 +38,12 @@ impl Inst {
 
     pub fn instruction(self) -> Instruction {
         self.instruction
+    }
+}
+
+impl Spans for Inst {
+    fn span(&self) -> Span {
+        self.span
     }
 }
 

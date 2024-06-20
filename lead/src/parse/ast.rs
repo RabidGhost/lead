@@ -10,7 +10,7 @@ pub enum Literal {
     Number { val: i32, span: Span },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     App {
         app: Application,
@@ -34,7 +34,7 @@ pub enum Expression {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     id: String,
     span: Span,
@@ -63,7 +63,7 @@ impl Spans for Identifier {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Application {
     Unary {
         op: OperatorType,
@@ -78,14 +78,14 @@ pub enum Application {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Mutate {
     pub variable: String,
     pub value: Expression,
     span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Let {
     pub variable: String,
     pub value: Expression,
@@ -98,14 +98,14 @@ impl Spans for Let {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct If {
     pub condition: Expression,
     pub iff: Statements,
     span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct While {
     pub condition: Expression,
     pub body: Statements,
@@ -118,7 +118,7 @@ impl Spans for While {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Let(Let),
     Mutate(Mutate),

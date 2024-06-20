@@ -1,5 +1,5 @@
 use lead::{
-    air::{generate_program, GenerationState},
+    air::{generate_program, GenerationState, Inst},
     lex::{token::Token, Lexer},
     parse::{ast::Statement, LangParser},
 };
@@ -28,11 +28,12 @@ impl Into<VMFlags> for RunArgs {
     }
 }
 
+#[derive(Clone)]
 pub enum Pipeline {
     Text(String, Option<RunArgs>),
     Tokens(String, Option<RunArgs>, Vec<Token>),
     SyntaxTree(String, Option<RunArgs>, Vec<Statement>),
-    IntermediateRepr(String, Option<RunArgs>, Vec<Instruction>),
+    IntermediateRepr(String, Option<RunArgs>, Vec<Inst>),
 }
 
 impl std::fmt::Debug for Pipeline {
@@ -73,6 +74,8 @@ pub enum PipelineError {
     InvalidUTF8Input,
     #[error("Error reading from stdin: {}", 0)]
     ErrorReadFromStdin(String),
+    #[error("{} can only be created from {}", 0, 1)]
+    InvalidInto(String, String),
 }
 
 impl Pipeline {
@@ -117,10 +120,10 @@ impl Pipeline {
             Self::SyntaxTree(src, args, ast) => {
                 let mut gen_state: GenerationState = GenerationState::new();
                 // this is not efficient at the moment
-                let air: Vec<Instruction> = generate_program(&mut gen_state, ast)
+                let air: Vec<Inst> = generate_program(&mut gen_state, ast)
                     .map_err(|err| err.with_src(src.clone()))?
                     .into_iter()
-                    .flat_map(|block| block.into_iter().map(|inst| inst.instruction()))
+                    .flatten()
                     .collect();
                 Ok(Pipeline::IntermediateRepr(src.clone(), args, air))
             }
@@ -136,6 +139,10 @@ impl Pipeline {
                     Some(args) => args.into(),
                     None => VMFlags::none(),
                 };
+                let instructions = instructions
+                    .iter()
+                    .map(|inst| inst.clone().instruction()) // should check if this clone is nessessary?
+                    .collect();
                 let mut vm = Machine::new(instructions, sndr, vm_flags);
                 let vm_thread = thread::spawn(move || vm.run());
 
@@ -203,11 +210,31 @@ impl Into<Vec<Token>> for Pipeline {
     }
 }
 
-impl Into<Vec<Instruction>> for Pipeline {
-    fn into(self) -> Vec<Instruction> {
+impl TryInto<Vec<Instruction>> for Pipeline {
+    type Error = PipelineError;
+    fn try_into(self) -> std::result::Result<Vec<Instruction>, Self::Error> {
         match self {
-            Self::IntermediateRepr(_, _, instructions) => instructions,
-            _ => panic!("invalid into"),
+            Self::IntermediateRepr(_, _, instructions) => Ok(instructions
+                .iter()
+                .map(|inst| inst.clone().instruction())
+                .collect()),
+            _ => Err(PipelineError::InvalidInto(
+                "Vec<Inst>".to_owned(),
+                "IntermediateRepr".to_owned(),
+            )),
+        }
+    }
+}
+
+impl TryInto<Vec<Inst>> for Pipeline {
+    type Error = PipelineError;
+    fn try_into(self) -> std::result::Result<Vec<Inst>, Self::Error> {
+        match self {
+            Self::IntermediateRepr(_, _, instructions) => Ok(instructions),
+            _ => Err(PipelineError::InvalidInto(
+                "Vec<Inst>".to_owned(),
+                "IntermediateRepr".to_owned(),
+            )),
         }
     }
 }

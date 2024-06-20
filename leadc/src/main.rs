@@ -73,7 +73,11 @@ fn run(args: RunArgs) -> Result<()> {
 }
 
 fn build(file: PathBuf) -> Result<()> {
-    let air: Vec<Instruction> = Pipeline::try_from(file)?.lex()?.parse()?.build()?.into();
+    let air: Vec<Instruction> = Pipeline::try_from(file)?
+        .lex()?
+        .parse()?
+        .build()?
+        .try_into()?;
 
     for instruction in air {
         print!("{instruction}");
