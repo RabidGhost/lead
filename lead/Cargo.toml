@@ -10,7 +10,6 @@ TSPL = "0.0.12"
 clap = { version = "4.5.4", features = ["derive"] }
 miette = { version = "7.2.0" }
 thiserror = "1.0.61"
-lead-vm = { path = "../lead-vm" }
 primes = "0.4.0"
 once_cell = "1.19.0"
 [dependencies.uuid]

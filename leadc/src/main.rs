@@ -1,9 +1,12 @@
-use clap::Parser;
-use lead::lex::{span::Spans, token::Token, token::TokenType};
-use lead::parse::ast::Statement;
-use lead_vm::air::Instruction;
+use lead::{
+    air::air::Instruction,
+    lex::{span::Spans, token::Token, token::TokenType},
+    parse::ast::Statement,
+};
 use leadc::cli::{Cli, Commands, RunArgs};
 use leadc::pipeline::Pipeline;
+
+use clap::Parser;
 use miette::Result;
 use std::{io::stdin, path::PathBuf};
 

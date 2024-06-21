@@ -1,15 +1,15 @@
 use lead::{
-    air::{generate_program, GenerationState, Inst},
+    air::{
+        air::{Inst, Instruction},
+        generate_program, GenerationState,
+    },
     lex::{token::Token, Lexer},
     parse::{ast::Statement, LangParser},
 };
 
 use crate::cli::RunArgs;
 
-use lead_vm::{
-    air::Instruction,
-    vm::{Machine, Message, VMFlags},
-};
+use lead_vm::vm::{Machine, Message, VMFlags};
 use miette::{Diagnostic, Result};
 use std::{
     fs::read_to_string,

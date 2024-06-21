@@ -1,7 +1,7 @@
 use std::sync::mpsc::channel;
 
 use super::*;
-use crate::air::Instruction;
+use lead::air::air::Instruction;
 
 const NO_FLAGS: VMFlags = VMFlags::none();
 

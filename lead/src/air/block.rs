@@ -1,5 +1,4 @@
-use super::Inst;
-use lead_vm::air::{Flag, Instruction, Reg};
+use super::air::{Flag, Inst, Instruction, Reg};
 
 /// A Block of the program, represented by AIR instructions
 #[derive(Clone)]

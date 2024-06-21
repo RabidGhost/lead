@@ -9,43 +9,14 @@ use crate::{
         While,
     },
 };
+use air::{Flag, Inst, Instruction, Mode, Reg};
 use block::Block;
-use lead_vm::air::{Flag, Instruction, Mode, Reg};
 
+pub mod air;
 mod block;
 
 /// Word size in bytes. This does not modify behavior program wide
 const WORD_SIZE: usize = 4;
-
-/// A wrapper type on lead-vm::air::Instruction containing aditional span information.
-#[derive(Clone)]
-pub struct Inst {
-    pub instruction: Instruction,
-    pub span: Span,
-}
-
-impl Inst {
-    fn new(instruction: Instruction, span: impl Spans) -> Self {
-        Self {
-            instruction,
-            span: span.span(),
-        }
-    }
-
-    fn output_register(&self) -> Option<Reg> {
-        self.instruction.output_register()
-    }
-
-    pub fn instruction(self) -> Instruction {
-        self.instruction
-    }
-}
-
-impl Spans for Inst {
-    fn span(&self) -> Span {
-        self.span
-    }
-}
 
 // temp pub struct
 #[derive(Debug)]

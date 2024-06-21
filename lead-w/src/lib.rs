@@ -1,6 +1,5 @@
-use lead::air::Inst;
+use lead::air::air::{Inst, Instruction};
 use lead::lex::token::Token;
-use lead_vm::air::Instruction;
 use leadc::pipeline::Pipeline;
 use serde::Serialize;
 use sourcespan::SourceSpan;

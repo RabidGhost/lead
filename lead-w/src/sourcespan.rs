@@ -1,4 +1,4 @@
-use lead::{air::Inst, lex::span::*};
+use lead::{air::air::Inst, lex::span::*};
 use primes::factors_uniq;
 use serde::Serialize;
 

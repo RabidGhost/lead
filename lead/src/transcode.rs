@@ -1,4 +1,4 @@
-use crate::air::Inst;
+use crate::air::air::Inst;
 use crate::lex::span::Span;
 
 pub struct Line {

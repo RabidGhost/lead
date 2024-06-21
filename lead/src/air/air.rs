@@ -1,3 +1,5 @@
+use crate::lex::span::*;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Reg(pub u32);
 
@@ -17,6 +19,36 @@ impl std::ops::DerefMut for Reg {
 impl std::fmt::Display for Reg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "%{}", **self)
+    }
+}
+
+/// A wrapper type on `Instruction` containing additional span information.
+#[derive(Clone)]
+pub struct Inst {
+    pub instruction: Instruction,
+    pub span: Span,
+}
+
+impl Inst {
+    pub fn new(instruction: Instruction, span: impl Spans) -> Self {
+        Self {
+            instruction,
+            span: span.span(),
+        }
+    }
+
+    pub fn output_register(&self) -> Option<Reg> {
+        self.instruction.output_register()
+    }
+
+    pub fn instruction(self) -> Instruction {
+        self.instruction
+    }
+}
+
+impl Spans for Inst {
+    fn span(&self) -> Span {
+        self.span
     }
 }
 

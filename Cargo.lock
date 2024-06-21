@@ -393,7 +393,6 @@ dependencies = [
  "assert_cmd",
  "assert_fs",
  "clap",
- "lead-vm",
  "miette",
  "once_cell",
  "predicates",
@@ -405,6 +404,9 @@ dependencies = [
 [[package]]
 name = "lead-vm"
 version = "0.1.0"
+dependencies = [
+ "lead",
+]
 
 [[package]]
 name = "lead-w"
