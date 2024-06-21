@@ -9,7 +9,7 @@ use lead::{
 
 use crate::cli::RunArgs;
 
-use lead_vm::vm::{Machine, Message, VMFlags};
+use lead_vm::{Machine, Message, VMFlags};
 use miette::{Diagnostic, Result};
 use std::{
     fs::read_to_string,

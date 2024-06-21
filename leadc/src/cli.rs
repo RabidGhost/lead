@@ -1,5 +1,5 @@
 use clap::{ArgGroup, Args, Parser, Subcommand};
-use lead_vm::vm::DEFAULT_MEMORY_SIZE;
+use lead_vm::DEFAULT_MEMORY_SIZE;
 use std::path::PathBuf;
 
 #[derive(Parser)]
