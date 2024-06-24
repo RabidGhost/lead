@@ -125,6 +125,22 @@ pub enum Flag {
     Nv,
 }
 
+impl Flag {
+    /// Negate a flag, returning a flag such that CHK FLAGB successedes exactly when FLAGA fails
+    pub fn negate(&self) -> Self {
+        match self {
+            Flag::Al => Flag::Nv,
+            Flag::Eq => Flag::Ne,
+            Flag::Ge => Flag::Lt,
+            Flag::Gt => Flag::Le,
+            Flag::Le => Flag::Gt,
+            Flag::Lt => Flag::Ge,
+            Flag::Ne => Flag::Eq,
+            Flag::Nv => Flag::Al,
+        }
+    }
+}
+
 impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
