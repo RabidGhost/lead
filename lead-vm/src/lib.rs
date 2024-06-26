@@ -2,19 +2,39 @@
 mod tests;
 
 use lead::air::air::{Flag, Instruction, Mode, Reg};
+use log::{debug, info};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 pub const DEFAULT_MEMORY_SIZE: usize = 256;
+pub const DEFAULT_VERBOSITY: u8 = 1;
 
+#[derive(Debug, Clone, Copy)]
 pub struct VMFlags {
     pub memory_size: usize,
+    /// the logging verbosity. 0 for quiet, 1 for normal, 2 for verbose, 3 for very verbose.
+    pub verbosity: u8,
+}
+
+pub enum Verbosity {
+    Quiet = 0,
+    Normal = 1,
+    Verbose = 2,
+    VeryVerbose = 3,
 }
 
 impl VMFlags {
     pub const fn none() -> Self {
         Self {
             memory_size: DEFAULT_MEMORY_SIZE,
+            verbosity: DEFAULT_VERBOSITY,
+        }
+    }
+
+    pub const fn new(memory_size: usize, verbosity: u8) -> Self {
+        Self {
+            memory_size,
+            verbosity,
         }
     }
 }
@@ -33,41 +53,25 @@ pub struct Machine {
     /// program counter
     pc: usize,
     flags: Flags,
+    vm_flags: VMFlags,
 }
 
 impl Machine {
     pub fn new(
         instructions: Vec<Instruction>,
         yield_sender: Sender<Message>,
-        flags: VMFlags,
+        vm_flags: VMFlags,
     ) -> Self {
         Self {
             instructions,
-            memory: vec![0; flags.memory_size],
+            memory: vec![0; vm_flags.memory_size],
             registers: HashMap::new(),
             yield_callback: yield_sender,
             pc: 0,
             flags: Flags::empty(),
+            vm_flags,
         }
     }
-
-    // fn with_memory(
-    //     instructions: Vec<Instruction>,
-    //     yield_sender: Sender<Message>,
-    //     memory: Vec<u8>,
-    //     flags: VMFlags,
-    // ) -> Self {
-    //     let mut mem = vec![0; flags.memory_size];
-    //     let memory = mem.splice(0..memory.len(), memory).collect();
-    //     Self {
-    //         instructions,
-    //         memory,
-    //         registers: HashMap::new(),
-    //         yield_callback: yield_sender,
-    //         pc: 0,
-    //         flags: Flags::empty(),
-    //     }
-    // }
 
     pub fn run(&mut self) {
         while self.step() {}
@@ -88,10 +92,17 @@ impl Machine {
 
     /// Advance the program counter by `n` steps.
     fn advance(&mut self, count: usize) {
+        if self.log_is_very_verbose() {
+            debug!("advancing by {count}")
+        }
         self.pc += count;
     }
 
     fn process(&mut self, instruction: &Instruction) {
+        if self.log_is_verbose() {
+            debug!("processing instruction: {instruction}")
+        }
+
         match instruction {
             Instruction::ADD(rd, rx, ry) => self.save(rd, &((self.get(rx)) + self.get(ry))),
             Instruction::SUB(rd, rx, ry) => self.save(rd, &((self.get(rx)) - self.get(ry))),
@@ -119,11 +130,19 @@ impl Machine {
 
     /// Get the value in a register, unchecked.
     fn get(&self, reg: &Reg) -> u32 {
-        *self.registers.get(&(*reg)).unwrap()
+        let val = *self.registers.get(&(*reg)).unwrap();
+
+        if self.log_is_very_verbose() {
+            debug!("getting {reg}, got {val}")
+        }
+        val
     }
 
     /// Save a value in a register
     fn save(&mut self, reg: &Reg, val: &u32) {
+        if self.log_is_very_verbose() {
+            debug!("saving {reg} with value {val}")
+        }
         self.registers.insert(**reg, *val);
     }
 
@@ -187,6 +206,10 @@ impl Machine {
     /// Yield a value in a register from the program. This passes the value to the yield callback
     fn yield_register(&mut self, reg: &Reg) {
         let val: u32 = self.get(reg);
+        if self.log_is_normal() {
+            debug!("yielding {val}")
+        }
+
         self.yield_callback
             .send(Message::Yield(val))
             .expect("oh no!") // this requires better handling
@@ -196,7 +219,12 @@ impl Machine {
     fn branch(&mut self, label: &str) {
         match self.find_label(label) {
             None => panic!("expected label {label} to exist in the program"),
-            Some(idx) => self.pc = idx,
+            Some(idx) => {
+                if self.log_is_verbose() {
+                    debug!("branching to {label}, pc = {idx}")
+                }
+                self.pc = idx
+            }
         }
     }
 
@@ -205,12 +233,8 @@ impl Machine {
         self.instructions
             .iter()
             .enumerate()
-            .map(|(i, inst)| match inst {
-                Instruction::LBL(lbl) if lbl == label => Some(i),
-                _ => None,
-            })
-            .find(|x| x.is_some())
-            .unwrap_or(None)
+            .find(|(_, inst)| **inst == Instruction::LBL(label.to_string()))
+            .map(|(i, _)| i)
     }
 
     fn set_flags(&mut self, rx: &Reg, ry: &Reg) {
@@ -235,6 +259,24 @@ impl Machine {
         if x >= y {
             self.flags.set(Flag::Ge)
         }
+
+        if self.log_is_verbose() {
+            debug!("flags set: {:#08b}", self.flags.0)
+        }
+    }
+
+    /// return weather the vm is logging in at least normal mode
+    fn log_is_normal(&self) -> bool {
+        self.vm_flags.verbosity >= Verbosity::Normal as u8
+    }
+
+    /// return weather the vm is logging in at least verbose mode
+    fn log_is_verbose(&self) -> bool {
+        self.vm_flags.verbosity >= Verbosity::Verbose as u8
+    }
+    /// return weather the vm is logging in very verbose mode
+    fn log_is_very_verbose(&self) -> bool {
+        self.vm_flags.verbosity >= Verbosity::VeryVerbose as u8
     }
 }
 
@@ -247,14 +289,16 @@ impl Flags {
     }
 
     fn set(&mut self, flag: Flag) {
-        *self = Self(self.0 & (1 << (flag as u8)));
+        *self = Self(self.0 | (1 << (flag as u8)));
     }
 
     fn contains(&self, flag: Flag) -> bool {
+        debug!("checking if flag {flag} is set: self is {:#010b}", self.0);
+
         if flag == Flag::Nv {
             false
         } else {
-            (self.0 & (1 << (flag as u8))) == 1
+            (self.0 >> (flag as u8) & 1) == 1
         }
     }
 }
