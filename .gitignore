@@ -1,3 +1,4 @@
 target/
 main.ed
 .DS_Store
+logs/
