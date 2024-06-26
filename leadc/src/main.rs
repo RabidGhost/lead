@@ -7,11 +7,43 @@ use leadc::cli::{Cli, Commands, RunArgs};
 use leadc::pipeline::Pipeline;
 
 use clap::Parser;
+use log::LevelFilter;
+use log4rs::{
+    append::file::FileAppender,
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+};
 use miette::Result;
 use std::{io::stdin, path::PathBuf};
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+
+    // for now just set the level at debug.
+    let mut file_path = String::from("logs/leadc.log");
+
+    if let Commands::Run(ref mut args) = cli.command {
+        file_path = match args.log_path.take() {
+            Some(pth) => pth.into_os_string().into_string().unwrap(),
+            None => file_path,
+        };
+    }
+
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+        .build(file_path)
+        .unwrap();
+
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(
+            Root::builder()
+                .appender("logfile")
+                .build(LevelFilter::Debug),
+        )
+        .unwrap();
+
+    log4rs::init_config(config).unwrap();
 
     match cli.command {
         Commands::Run(args) => run(args)?,
@@ -89,11 +121,13 @@ fn build(file: PathBuf) -> Result<()> {
 }
 
 #[cfg(debug_assertions)]
-fn test(file: PathBuf) -> Result<()> {
-    let statements: Vec<Statement> = Pipeline::try_from(file)?.lex()?.parse()?.into();
-
-    for statement in statements {
-        println!("{statement:?} : {:?}", statement.span().composing_ids())
-    }
+fn test(_file: PathBuf) -> Result<()> {
+    println!("{:?}", std::env::current_dir().unwrap());
     Ok(())
+    // let statements: Vec<Statement> = Pipeline::try_from(file)?.lex()?.parse()?.into();
+
+    // for statement in statements {
+    //     println!("{statement:?} : {:?}", statement.span().composing_ids())
+    // }
+    // Ok(())
 }

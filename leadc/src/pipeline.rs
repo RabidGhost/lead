@@ -9,7 +9,7 @@ use lead::{
 
 use crate::cli::RunArgs;
 
-use lead_vm::{Machine, Message, VMFlags};
+use lead_vm::{Machine, Message, VMFlags, DEFAULT_VERBOSITY};
 use miette::{Diagnostic, Result};
 use std::{
     fs::read_to_string,
@@ -22,8 +22,21 @@ use thiserror::Error;
 
 impl Into<VMFlags> for RunArgs {
     fn into(self) -> VMFlags {
+        let verbosity = {
+            if self.quiet {
+                0
+            } else if self.verbose {
+                2
+            } else if self.very_verbose {
+                3
+            } else {
+                DEFAULT_VERBOSITY
+            }
+        };
+
         VMFlags {
             memory_size: self.memory_size,
+            verbosity,
         }
     }
 }
