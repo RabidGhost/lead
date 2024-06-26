@@ -1,0 +1,12 @@
+let fst := 1;
+let snd := 1;
+let i := 0;
+
+while i < 10 {
+    yield fst;
+
+    let temp := fst + snd;
+    fst := snd;
+    snd := temp;
+    i := i + 1;
+}
