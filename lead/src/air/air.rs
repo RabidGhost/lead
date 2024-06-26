@@ -44,6 +44,14 @@ impl Inst {
     pub fn instruction(self) -> Instruction {
         self.instruction
     }
+
+    pub fn instruction_mut(&mut self) -> &mut Instruction {
+        &mut self.instruction
+    }
+
+    pub fn instruction_borrow(&self) -> &Instruction {
+        &self.instruction
+    }
 }
 
 impl Spans for Inst {
@@ -52,7 +60,7 @@ impl Spans for Inst {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Instruction {
     ADD(Reg, Reg, Reg),
     SUB(Reg, Reg, Reg),
@@ -126,8 +134,8 @@ pub enum Flag {
 }
 
 impl Flag {
-    /// Negate a flag, returning a flag such that CHK FLAGB successedes exactly when FLAGA fails
-    pub fn negate(&self) -> Self {
+    /// Negate a flag, returning a flag such that CHK FLAG successedes exactly when the origonal flag fails.
+    pub fn negate(self) -> Self {
         match self {
             Flag::Al => Flag::Nv,
             Flag::Eq => Flag::Ne,

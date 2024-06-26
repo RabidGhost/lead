@@ -330,19 +330,20 @@ impl Lowerable for While {
 
         while_block.extend(self.condition.lower(state)?);
 
-        let loop_label = format!("{}-loop", label_uuid.clone());
+        // let loop_label = format!("{}-loop", label_uuid.clone()); // no need for a loop label
         let break_label = format!("{}-break", label_uuid);
 
         while_block.append_inst(Inst::new(
-            Instruction::CHK(while_block.latest_flag_hint().unwrap_or(Flag::Nv)),
+            Instruction::CHK(
+                while_block
+                    .latest_flag_hint()
+                    .map_or(Flag::Nv, |flag| flag.negate()),
+            ),
             self.condition.span(),
         ));
 
-        // append the two branch options, branch to the loop if successful, branch to the loop break if unsuccessful.
-        while_block.append_inst(Inst::new(
-            Instruction::BRA(loop_label),
-            self.condition.span(),
-        ));
+        // append a branch to break if the condition is unsuccessful.
+
         while_block.append_inst(Inst::new(
             Instruction::BRA(break_label.clone()),
             self.condition.span(),

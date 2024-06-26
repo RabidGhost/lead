@@ -71,6 +71,17 @@ impl Block {
     pub fn instructions(&self) -> &Vec<Inst> {
         &self.instructions
     }
+
+    /// Return a mutable reference to the latest *instruction* (not Inst) that furfils the predicate
+    pub fn get_latest_mut(
+        &mut self,
+        predicate: impl Fn(&Instruction) -> bool,
+    ) -> Option<&mut Instruction> {
+        self.instructions
+            .iter_mut()
+            .rfind(|x| predicate(x.instruction_borrow()))
+            .map_or(None, |inst| Some(inst.instruction_mut()))
+    }
 }
 
 impl std::iter::Extend<Inst> for Block {
